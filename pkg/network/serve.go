@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ovh/go-ovh/ovh"
@@ -56,51 +57,60 @@ func setCloudProjectInstanceBilling(projectID string, instanceID string, instanc
 	}).Set(amount)
 }
 
-func updateCloudProviderInstanceBilling(ovhClient *ovh.Client) {
-	logger.Info().Msg("updating cloud provider instance billing")
+func updateCloudProviderInstanceBillingPerInstance(projectID string, instance models.InstanceSummary, flavors []models.Flavor) {
+	logger.Info().Msgf("updating cloud provider instance billing for instance %s", instance.ID)
 
-	projectID := os.Getenv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_ID")
+	flavor := api.FindFlavorByID(flavors, instance.FlavorID)
+	planType := "undefined"
+	if instance.PlanCode != nil && flavor.PlanCodes.Hourly != nil && flavor.PlanCodes.Monthly != nil {
+		switch {
+		case *instance.PlanCode == *flavor.PlanCodes.Hourly:
+			planType = "hourly"
+		case *instance.PlanCode == *flavor.PlanCodes.Monthly:
+			planType = "monthly"
+		}
+	}
+	instancePlanCode := "undefined"
+	if instance.PlanCode != nil {
+		instancePlanCode = *instance.PlanCode
+	}
+	instanceMonthlyBillingSince := time.Unix(0, 0)
+	instanceMonthlyBillingStatus := "undefined"
+	if instance.MonthlyBilling != nil {
+		instanceMonthlyBillingSince = instance.MonthlyBilling.Since
+		instanceMonthlyBillingStatus = instance.MonthlyBilling.Status
+	}
+
+	setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, instancePlanCode, instanceMonthlyBillingSince, instanceMonthlyBillingStatus, 1)
+}
+
+func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, projectID string) {
+	logger.Info().Msgf("updating cloud provider instance billing for project %s", projectID)
 
 	projectInstances, err := api.GetCloudProjectInstances(ovhClient, projectID)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to retrieve instances: %v", err)
+		logger.Error().Msgf("Failed to retrieve instances: %v", err)
+		return
 	}
 
-	var flavors []models.Flavor
-	for _, instance := range projectInstances {
-		if api.FindFlavorByID(flavors, instance.FlavorID) == nil {
-			flavor, err := api.GetCloudProjectFlavor(ovhClient, projectID, instance.FlavorID)
-			if err != nil {
-				logger.Error().Err(err).Msgf("Failed to retrieve flavor: %v", err)
-			} else {
-				flavors = append(flavors, flavor)
-			}
-		}
+	flavors, err := api.GetCloudProjectFlavorsPerInstances(ovhClient, projectID, projectInstances)
+	if err != nil {
+		logger.Error().Msgf("Failed to retrieve flavors: %v", err)
+		return
 	}
 
 	for _, instance := range projectInstances {
-		flavor := api.FindFlavorByID(flavors, instance.FlavorID)
-		planType := "undefined"
-		if instance.PlanCode != nil && flavor.PlanCodes.Hourly != nil && flavor.PlanCodes.Monthly != nil {
-			switch {
-			case *instance.PlanCode == *flavor.PlanCodes.Hourly:
-				planType = "hourly"
-			case *instance.PlanCode == *flavor.PlanCodes.Monthly:
-				planType = "monthly"
-			}
-		}
-		instancePlanCode := "undefined"
-		if instance.PlanCode != nil {
-			instancePlanCode = *instance.PlanCode
-		}
-		instanceMonthlyBillingSince := time.Unix(0, 0)
-		instanceMonthlyBillingStatus := "undefined"
-		if instance.MonthlyBilling != nil {
-			instanceMonthlyBillingSince = instance.MonthlyBilling.Since
-			instanceMonthlyBillingStatus = instance.MonthlyBilling.Status
-		}
+		updateCloudProviderInstanceBillingPerInstance(projectID, instance, flavors)
+	}
+}
 
-		setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, instancePlanCode, instanceMonthlyBillingSince, instanceMonthlyBillingStatus, 1)
+func updateCloudProviderInstanceBilling(ovhClient *ovh.Client) {
+	projectIDs := os.Getenv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS")
+
+	projectIDList := strings.Split(projectIDs, ",")
+
+	for _, projectID := range projectIDList {
+		updateCloudProviderInstanceBillingPerProjectID(ovhClient, projectID)
 	}
 }
 
