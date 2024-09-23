@@ -27,3 +27,4 @@ go.work.sum
 # Custom part
 ovh-exporter
 vendor
+*.env
