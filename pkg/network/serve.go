@@ -89,8 +89,18 @@ func updateCloudProviderInstanceBilling(ovhClient *ovh.Client) {
 				planType = "monthly"
 			}
 		}
+		instancePlanCode := "undefined"
+		if instance.PlanCode != nil {
+			instancePlanCode = *instance.PlanCode
+		}
+		instanceMonthlyBillingSince := time.Unix(0, 0)
+		instanceMonthlyBillingStatus := "undefined"
+		if instance.MonthlyBilling != nil {
+			instanceMonthlyBillingSince = instance.MonthlyBilling.Since
+			instanceMonthlyBillingStatus = instance.MonthlyBilling.Status
+		}
 
-		setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, *instance.PlanCode, instance.MonthlyBilling.Since, instance.MonthlyBilling.Status, 1)
+		setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, instancePlanCode, instanceMonthlyBillingSince, instanceMonthlyBillingStatus, 1)
 	}
 }
 
