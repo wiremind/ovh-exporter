@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -118,7 +117,7 @@ func setupCacheUpdater(ovhClient *ovh.Client) {
 	intervalStr := os.Getenv("OVH_CACHE_UPDATE_INTERVAL")
 	intervalSeconds, err := strconv.Atoi(intervalStr)
 	if err != nil {
-		log.Fatalf("Failed to parse OVH_CACHE_UPDATE_INTERVAL: %v", err)
+		logger.Fatal().Msgf("Failed to parse OVH_CACHE_UPDATE_INTERVAL: %v", err)
 	}
 	cacheUpdateInterval := time.Duration(intervalSeconds) * time.Second
 
@@ -144,7 +143,7 @@ func serveRoutes(clicontext *cli.Context) error {
 		os.Getenv("OVH_CONSUMER_KEY"),
 	)
 	if err != nil {
-		log.Fatalf("Failed to create OVH client: %v", err)
+		logger.Fatal().Msgf("Failed to create OVH client: %v", err)
 	}
 
 	http.HandleFunc("/ping", pingHandler)
