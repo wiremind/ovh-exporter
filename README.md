@@ -21,6 +21,12 @@ export SERVER_PORT="8080"
 
 # Running
 
+## Binary
 ```bash
 ovh-exporter serve
+```
+
+## Compose file
+```bash
+nerdctl compose up
 ```
