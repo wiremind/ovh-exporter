@@ -109,6 +109,8 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.BINARY_NAME }}-*
 
       - name: Package
         run: |
