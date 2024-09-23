@@ -15,7 +15,7 @@ COPY . .
 
 RUN make ovh-exporter && mv ovh-exporter /usr/bin/
 
-FROM busybox:stable AS runtime
+FROM alpine:3.20.3 AS runtime
 
 COPY --from=build /usr/bin/ovh-exporter /usr/bin/ovh-exporter
 
