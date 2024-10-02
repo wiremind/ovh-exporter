@@ -127,6 +127,7 @@ func setupCacheUpdater(ovhClient *ovh.Client) {
 	defer ticker.Stop()
 
 	for {
+		cloudProjectInstanceBilling.Reset()
 		updateCloudProviderInstanceBilling(ovhClient)
 
 		<-ticker.C
