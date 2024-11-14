@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/ovh/go-ovh v1.6.0
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	github.com/rs/zerolog v1.33.0
 	github.com/urfave/cli v1.22.15
 )
