@@ -34,6 +34,9 @@ var apiKeyRights = []APIKeyRight{
 	{Method: "GET", Endpoint: "/cloud/project/*/flavor/*"},
 	{Method: "GET", Endpoint: "/cloud/project/*/instance"},
 	{Method: "GET", Endpoint: "/cloud/project/*/instance/*"},
+	{Method: "GET", Endpoint: "/dedicated/server"},
+	{Method: "GET", Endpoint: "/dedicated/server/*"},
+	{Method: "GET", Endpoint: "/dedicated/server/*/serviceInfos"},
 }
 
 func generateURL(baseURL string, apiKeyRights []APIKeyRight) string {
