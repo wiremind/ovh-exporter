@@ -18,6 +18,20 @@ var dedicatedServerSubscription = prometheus.NewGaugeVec(
 	[]string{"server_id", "status", "creation", "expiration", "engaged_up_to", "renewal_type", "renew_automatic", "renew_period", "renew_manual_payment", "renew_forced", "renew_delete_at_expiration"},
 )
 
+var dedicatedServerSubscriptionExpirationTimestamp = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "ovh_exporter_dedicated_server_subscription_expiration_timestamp",
+		Help: "Tracks the subscription expiration for OVH dedicated servers.",
+	},
+	[]string{"server_id"},
+)
+
+func setDedicatedServerSubscriptionExpirationTimestamp(server models.Server, amount float64) {
+	dedicatedServerSubscriptionExpirationTimestamp.With(prometheus.Labels{
+		"server_id": server.ID,
+	}).Set(amount)
+}
+
 func setDedicatedServerSubscription(server models.Server, serviceinfos models.ServiceInfo, amount float64) {
 	renewAutomatic := false
 	if serviceinfos.Renew != nil {
@@ -74,6 +88,7 @@ func updateDedicatedServerSubscription(ovhClient *ovh.Client, server models.Serv
 	}
 
 	setDedicatedServerSubscription(server, serviceInfos, 1)
+	setDedicatedServerSubscriptionExpirationTimestamp(server, float64(serviceInfos.Expiration.Unix()))
 }
 
 func updateDedicatedServersSubscription(ovhClient *ovh.Client) {
