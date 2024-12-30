@@ -30,6 +30,7 @@ func pingHandler(w http.ResponseWriter, req *http.Request) {
 func initializeMetrics() {
 	prometheus.MustRegister(cloudProjectInstanceBilling)
 	prometheus.MustRegister(dedicatedServerSubscription)
+	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
 }
 
 func updateMetrics(ovhClient *ovh.Client) {
@@ -37,6 +38,7 @@ func updateMetrics(ovhClient *ovh.Client) {
 	updateCloudProviderInstanceBilling(ovhClient)
 
 	dedicatedServerSubscription.Reset()
+	dedicatedServerSubscriptionExpirationTimestamp.Reset()
 	updateDedicatedServersSubscription(ovhClient)
 }
 
