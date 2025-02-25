@@ -65,13 +65,13 @@ func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, proje
 
 	projectInstances, err := api.GetCloudProjectInstances(ovhClient, projectID)
 	if err != nil {
-		logger.Error().Msgf("Failed to retrieve instances: %v", err)
+		logger.Error().Msgf("failed to retrieve instances: %v", err)
 		return
 	}
 
 	flavors, err := api.GetCloudProjectFlavorsPerInstances(ovhClient, projectID, projectInstances)
 	if err != nil {
-		logger.Error().Msgf("Failed to retrieve flavors: %v", err)
+		logger.Error().Msgf("failed to retrieve flavors: %v", err)
 		return
 	}
 

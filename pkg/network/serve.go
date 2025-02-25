@@ -31,6 +31,7 @@ func initializeMetrics() {
 	prometheus.MustRegister(cloudProjectInstanceBilling)
 	prometheus.MustRegister(dedicatedServerSubscription)
 	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
+	prometheus.MustRegister(servicesSavingsPlansSubscribed)
 }
 
 func updateMetrics(ovhClient *ovh.Client) {
@@ -40,13 +41,16 @@ func updateMetrics(ovhClient *ovh.Client) {
 	dedicatedServerSubscription.Reset()
 	dedicatedServerSubscriptionExpirationTimestamp.Reset()
 	updateDedicatedServersSubscription(ovhClient)
+
+	servicesSavingsPlansSubscribed.Reset()
+	updateAllServicesSavingsPlansSubscribed(ovhClient)
 }
 
 func setupCacheUpdater(ovhClient *ovh.Client) {
 	intervalStr := os.Getenv("OVH_CACHE_UPDATE_INTERVAL")
 	intervalSeconds, err := strconv.Atoi(intervalStr)
 	if err != nil {
-		logger.Fatal().Msgf("Failed to parse OVH_CACHE_UPDATE_INTERVAL: %v", err)
+		logger.Fatal().Msgf("failed to parse OVH_CACHE_UPDATE_INTERVAL: %v", err)
 	}
 	cacheUpdateInterval := time.Duration(intervalSeconds) * time.Second
 
@@ -72,7 +76,7 @@ func serveRoutes(clicontext *cli.Context) error {
 		os.Getenv("OVH_CONSUMER_KEY"),
 	)
 	if err != nil {
-		logger.Fatal().Msgf("Failed to create OVH client: %v", err)
+		logger.Fatal().Msgf("failed to create OVH client: %v", err)
 	}
 
 	http.HandleFunc("/ping", pingHandler)
