@@ -83,7 +83,7 @@ func updateDedicatedServerSubscription(ovhClient *ovh.Client, server models.Serv
 
 	serviceInfos, err := api.GetDedicatedServerServiceInfos(ovhClient, server.ID)
 	if err != nil {
-		logger.Error().Msgf("Failed to retrieve dedicated server serviceinfos: %v", err)
+		logger.Error().Msgf("failed to retrieve dedicated server serviceinfos: %v", err)
 		return
 	}
 
@@ -96,7 +96,7 @@ func updateDedicatedServersSubscription(ovhClient *ovh.Client) {
 
 	servers, err := api.GetDedicatedServers(ovhClient)
 	if err != nil {
-		logger.Error().Msgf("Failed to retrieve servers: %v", err)
+		logger.Error().Msgf("failed to retrieve servers: %v", err)
 		return
 	}
 
