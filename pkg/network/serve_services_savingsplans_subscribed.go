@@ -37,7 +37,7 @@ func setServiceSavingsPlansSubscribed(projectID string, instanceName string, ser
 		"project_id":              projectID,
 		"instance_name":           instanceName,
 		"period":                  savingsPlanPeriod,
-		"flavor":                  savingsPlanFlavor,
+		"flavor":                  strings.ToLower(savingsPlanFlavor),
 		"service_id":              serviceID,
 		"savings_plan_id":         savingsPlanID,
 		"savings_plan_status":     savingsPlanStatus,
