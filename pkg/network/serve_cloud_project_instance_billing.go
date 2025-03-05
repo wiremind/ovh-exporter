@@ -16,10 +16,10 @@ var cloudProjectInstanceBilling = prometheus.NewGaugeVec(
 		Name: "ovh_exporter_cloud_project_instance_billing",
 		Help: "Tracks the billing for OVH cloud project instances.",
 	},
-	[]string{"project_id", "instance_id", "instance_name", "billing_type", "billing_code", "billing_monthly_date", "billing_monthly_status"},
+	[]string{"project_id", "instance_id", "instance_name", "billing_type", "billing_code", "billing_monthly_date", "billing_monthly_status", "flavor"},
 )
 
-func setCloudProjectInstanceBilling(projectID string, instanceID string, instanceName string, billingType string, billingCode string, billingMonthlyDate time.Time, billingMonthlyStatus string, amount float64) {
+func setCloudProjectInstanceBilling(projectID string, instanceID string, instanceName string, billingType string, billingCode string, billingMonthlyDate time.Time, billingMonthlyStatus string, amount float64, billingMonthlyStatusFlavor string) {
 	billingMonthlyDateFormatted := billingMonthlyDate.Format("2006-01-02 15:04:05")
 
 	cloudProjectInstanceBilling.With(prometheus.Labels{
@@ -30,6 +30,7 @@ func setCloudProjectInstanceBilling(projectID string, instanceID string, instanc
 		"billing_code":           billingCode,
 		"billing_monthly_date":   billingMonthlyDateFormatted,
 		"billing_monthly_status": billingMonthlyStatus,
+		"flavor":                 billingMonthlyStatusFlavor,
 	}).Set(amount)
 }
 
@@ -57,7 +58,7 @@ func updateCloudProviderInstanceBillingPerInstance(projectID string, instance mo
 		instanceMonthlyBillingStatus = instance.MonthlyBilling.Status
 	}
 
-	setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, instancePlanCode, instanceMonthlyBillingSince, instanceMonthlyBillingStatus, 1)
+	setCloudProjectInstanceBilling(projectID, instance.ID, instance.Name, planType, instancePlanCode, instanceMonthlyBillingSince, instanceMonthlyBillingStatus, 1, flavor.Name)
 }
 
 func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, projectID string) {
