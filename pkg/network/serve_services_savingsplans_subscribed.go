@@ -12,10 +12,10 @@ import (
 )
 
 // Defining the gauge vector for saving plans
-var servicesSavingsPlansSubscribed = prometheus.NewGaugeVec(
+var servicesSavingsPlansSubscribedPlanSize = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
-		Name: "ovh_exporter_services_savingsplans_subscribed",
-		Help: "Tracks if a saving plan is subscribed on the service.",
+		Name: "ovh_exporter_services_savingsplans_subscribed_plan_size",
+		Help: "Tracks size of savings plans subscribed on the service.",
 	},
 	[]string{
 		"project_id",
@@ -27,13 +27,11 @@ var servicesSavingsPlansSubscribed = prometheus.NewGaugeVec(
 		"savings_plan_status",
 		"savings_plan_start_date",
 		"savings_plan_end_date",
-		"savings_plan_size",
 	},
 )
 
-// Function to set the value in Prometheus gauge
-func setServiceSavingsPlansSubscribed(projectID string, instanceName string, serviceID string, savingsPlanPeriod string, savingsPlanFlavor string, savingsPlanID string, savingsPlanStatus string, savingsPlanPeriodStartDate string, savingsPlanPeriodEndDate string, savingsPlanSize string) {
-	servicesSavingsPlansSubscribed.With(prometheus.Labels{
+func setServiceSavingsPlansSubscribedPlanSize(projectID string, instanceName string, serviceID string, savingsPlanPeriod string, savingsPlanFlavor string, savingsPlanID string, savingsPlanStatus string, savingsPlanPeriodStartDate string, savingsPlanPeriodEndDate string, savingsPlanSize int) {
+	servicesSavingsPlansSubscribedPlanSize.With(prometheus.Labels{
 		"project_id":              projectID,
 		"instance_name":           instanceName,
 		"period":                  savingsPlanPeriod,
@@ -43,8 +41,7 @@ func setServiceSavingsPlansSubscribed(projectID string, instanceName string, ser
 		"savings_plan_status":     savingsPlanStatus,
 		"savings_plan_start_date": savingsPlanPeriodStartDate,
 		"savings_plan_end_date":   savingsPlanPeriodEndDate,
-		"savings_plan_size":       savingsPlanSize,
-	}).Set(1)
+	}).Set(float64(savingsPlanSize))
 }
 
 // Function to update the savings plan subscription per service
@@ -70,7 +67,7 @@ func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, p
 		logger.Info().Msgf("processing savings plan %s for service %d", savingsPlan.ID, serviceID)
 
 		// Set the values in the Prometheus gauge for each plan
-		setServiceSavingsPlansSubscribed(
+		setServiceSavingsPlansSubscribedPlanSize(
 			projectID,
 			savingsPlan.DisplayName,
 			strconv.Itoa(serviceID),
@@ -80,7 +77,7 @@ func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, p
 			string(savingsPlan.Status),
 			savingsPlan.PeriodStartDate,
 			savingsPlan.PeriodEndDate,
-			strconv.Itoa(savingsPlan.Size),
+			savingsPlan.Size,
 		)
 	}
 }

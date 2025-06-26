@@ -3,6 +3,7 @@ services:
     image: ghcr.io/wiremind/ovh-exporter
     build:
       context: .
+      dockerfile: Containerfile
     container_name: ovh-exporter
     ports:
       - "8080:8080"
