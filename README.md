@@ -40,6 +40,8 @@ OVH_CACHE_UPDATE_INTERVAL="300"
 SERVER_PORT="8080"
 ```
 
+The projects' id can be found in the `Public Cloud` tab of OVH console.
+
 ## Running
 
 ### Running the Binary
@@ -73,10 +75,10 @@ Follow these steps to add new metrics:
 Once you've added the metric, test it by running the Compose file. If needed, set up port forwarding, and then run the following command:
 
 ```bash
-curl 0.0.0.0:<port>/metrics | grep "your_metric"
+curl -s 0.0.0.0:<port>/metrics | grep "your_metric"
 ```
 
 Example
 ```bash
-curl 0.0.0.0:8080/metrics | grep "ovh_exporter_services_savingsplans_subscribed"
+curl -s 0.0.0.0:8080/metrics | grep "ovh_exporter_services_savingsplans_subscribed"
 ```

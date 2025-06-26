@@ -31,7 +31,7 @@ func initializeMetrics() {
 	prometheus.MustRegister(cloudProjectInstanceBilling)
 	prometheus.MustRegister(dedicatedServerSubscription)
 	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
-	prometheus.MustRegister(servicesSavingsPlansSubscribed)
+	prometheus.MustRegister(servicesSavingsPlansSubscribedPlanSize)
 }
 
 func updateMetrics(ovhClient *ovh.Client) {
@@ -42,7 +42,7 @@ func updateMetrics(ovhClient *ovh.Client) {
 	dedicatedServerSubscriptionExpirationTimestamp.Reset()
 	updateDedicatedServersSubscription(ovhClient)
 
-	servicesSavingsPlansSubscribed.Reset()
+	servicesSavingsPlansSubscribedPlanSize.Reset()
 	updateAllServicesSavingsPlansSubscribed(ovhClient)
 }
 
