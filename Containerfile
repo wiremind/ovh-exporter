@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS build
+FROM golang:1.26-alpine AS build
 
 ENV CGO_ENABLED=0
 ENV GOOS=linux
@@ -15,7 +15,7 @@ COPY . .
 
 RUN make ovh-exporter && mv ovh-exporter /usr/bin/
 
-FROM alpine:3.20.3 AS runtime
+FROM alpine:3.24.1 AS runtime
 
 COPY --from=build /usr/bin/ovh-exporter /usr/bin/ovh-exporter
 

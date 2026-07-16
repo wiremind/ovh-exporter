@@ -24,7 +24,7 @@ func GetCloudProjectFlavorsPerInstances(ovhClient *ovh.Client, projectID string,
 			flavor, err := GetCloudProjectFlavor(ovhClient, projectID, instance.FlavorID)
 			if err != nil {
 				if apierr == nil {
-					apierr = fmt.Errorf("Failed to retrieve flavor: %v", err)
+					apierr = fmt.Errorf("failed to retrieve flavor: %v", err)
 				} else {
 					apierr = fmt.Errorf("%s; %v", apierr, err)
 				}

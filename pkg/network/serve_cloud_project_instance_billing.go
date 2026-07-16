@@ -40,10 +40,10 @@ func updateCloudProviderInstanceBillingPerInstance(projectID string, instance mo
 	flavor := api.FindFlavorByID(flavors, instance.FlavorID)
 	planType := "undefined"
 	if instance.PlanCode != nil && flavor.PlanCodes.Hourly != nil && flavor.PlanCodes.Monthly != nil {
-		switch {
-		case *instance.PlanCode == *flavor.PlanCodes.Hourly:
+		switch *instance.PlanCode {
+		case *flavor.PlanCodes.Hourly:
 			planType = "hourly"
-		case *instance.PlanCode == *flavor.PlanCodes.Monthly:
+		case *flavor.PlanCodes.Monthly:
 			planType = "monthly"
 		}
 	}

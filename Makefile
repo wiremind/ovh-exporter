@@ -20,7 +20,7 @@ PKG=github.com/wiremind/ovh-exporter
 export CGO_ENABLED:=0
 
 GO_GCFLAGS?=
-GO_LDFLAGS=-ldflags '-X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) -X $(PKG)/version.Package=$(PKG)'
+GO_LDFLAGS=-ldflags '-X $(PKG)/pkg/cmd.Version=$(VERSION) -X $(PKG)/pkg/cmd.Revision=$(REVISION) -X $(PKG)/pkg/cmd.Package=$(PKG)'
 
 .PHONY: build
 build: ${BINARY_NAME}
@@ -41,9 +41,9 @@ lint: dependencies
 ## Loads all the dependencies to vendor directory
 .PHONY: dependencies
 dependencies:
-	go install golang.org/x/tools/cmd/goimports@v0.25.0
-	go install mvdan.cc/gofumpt@v0.7.0
-	go install github.com/daixiang0/gci@v0.13.5
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61
-	go mod vendor
+	go install golang.org/x/tools/cmd/goimports@v0.48.0
+	go install mvdan.cc/gofumpt@v0.10.0
+	go install github.com/daixiang0/gci@v0.14.0
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 	go mod tidy
+	go mod vendor

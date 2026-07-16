@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,10 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
 )
 
-var ServeCommand = cli.Command{
+var ServeCommand = &cli.Command{
 	Name:   "serve",
 	Usage:  "serve all routes",
 	Action: serveRoutes,
@@ -24,7 +25,7 @@ var logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 func pingHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "pong")
+	_, _ = fmt.Fprintln(w, "pong")
 }
 
 func initializeMetrics() {
@@ -66,7 +67,7 @@ func setupCacheUpdater(ovhClient *ovh.Client) {
 	}
 }
 
-func serveRoutes(clicontext *cli.Context) error {
+func serveRoutes(ctx context.Context, cmd *cli.Command) error {
 	initializeMetrics()
 
 	ovhClient, err := ovh.NewClient(
