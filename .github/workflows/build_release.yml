@@ -48,11 +48,16 @@ jobs:
           GOARCH: ${{ matrix.arch }}
         run: make build
 
+      - name: Package
+        run: |
+          tar -czf ${{ env.BINARY_NAME }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz ${{ env.BINARY_NAME }}
+          sha256sum ${{ env.BINARY_NAME }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz > ${{ env.BINARY_NAME }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz.sha256
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.BINARY_NAME }}-${{ matrix.platform }}-${{ matrix.arch }}
-          path: ${{ env.BINARY_NAME }}
+          path: ${{ env.BINARY_NAME }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz*
           if-no-files-found: error
 
   container:
@@ -111,18 +116,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: ${{ env.BINARY_NAME }}-*
-
-      - name: Package
-        run: |
-          for folder in ./*; do
-            if [ -d "$folder" ]; then
-              echo "Processing folder: $folder"
-              cd $folder
-              tar -czf ../$folder.tar.gz -T <(\ls -1)
-              cd ..
-              sha256sum $folder.tar.gz > $folder.tar.gz.sha256
-            fi
-          done
+          merge-multiple: true
 
       - name: Release
         uses: svenstaro/upload-release-action@v2
