@@ -1,20 +1,20 @@
 package credentials
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/rs/zerolog"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
 )
 
-var GenerateCommand = cli.Command{
+var GenerateCommand = &cli.Command{
 	Name:   "credentials",
 	Usage:  "generate credentials link",
 	Action: generateLink,
 	Flags: []cli.Flag{
-		// Add the OVH_CREATE_TOKEN_ENDPOINT flag here
 		&cli.StringFlag{
 			Name:  "endpoint",
 			Usage: "Specify the OVH create token endpoint",
@@ -52,14 +52,14 @@ func generateURL(baseURL string, apiKeyRights []APIKeyRight) string {
 		} else {
 			generatedURL.WriteString("&")
 		}
-		generatedURL.WriteString(fmt.Sprintf("%s=%s", right.Method, right.Endpoint))
+		_, _ = fmt.Fprintf(&generatedURL, "%s=%s", right.Method, right.Endpoint)
 	}
 
 	return generatedURL.String()
 }
 
-func generateLink(clicontext *cli.Context) error {
-	baseURL := clicontext.String("endpoint")
+func generateLink(ctx context.Context, cmd *cli.Command) error {
+	baseURL := cmd.String("endpoint")
 	link := generateURL(baseURL, apiKeyRights)
 
 	logger.Info().Msgf("%s", link)
