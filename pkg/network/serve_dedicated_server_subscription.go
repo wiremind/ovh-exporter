@@ -1,6 +1,7 @@
 package network
 
 import (
+	"os"
 	"strconv"
 	"time"
 
@@ -92,6 +93,10 @@ func updateDedicatedServerSubscription(ovhClient *ovh.Client, server models.Serv
 }
 
 func updateDedicatedServersSubscription(ovhClient *ovh.Client) {
+	if os.Getenv("OVH_DEDICATED_SERVER_SUBSCRIPTION_ENABLED") == "false" {
+		return
+	}
+
 	logger.Info().Msgf("updating dedicated server subscription")
 
 	servers, err := api.GetDedicatedServers(ovhClient)

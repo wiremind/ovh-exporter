@@ -1,8 +1,6 @@
 package network
 
 import (
-	"os"
-	"strings"
 	"time"
 
 	"github.com/ovh/go-ovh/ovh"
@@ -82,11 +80,7 @@ func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, proje
 }
 
 func updateCloudProviderInstanceBilling(ovhClient *ovh.Client) {
-	projectIDs := os.Getenv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS")
-
-	projectIDList := strings.Split(projectIDs, ",")
-
-	for _, projectID := range projectIDList {
+	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS") {
 		updateCloudProviderInstanceBillingPerProjectID(ovhClient, projectID)
 	}
 }

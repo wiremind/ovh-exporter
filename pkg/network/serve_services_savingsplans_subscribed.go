@@ -2,7 +2,6 @@ package network
 
 import (
 	"log"
-	"os"
 	"strconv"
 	"strings"
 
@@ -84,12 +83,8 @@ func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, p
 
 // Function to update the savings plan subscription for all services
 func updateAllServicesSavingsPlansSubscribed(ovhClient *ovh.Client) {
-	projectIDs := os.Getenv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS")
-
-	projectIDList := strings.Split(projectIDs, ",")
-
 	// Loop through each projectID in the projectIDList
-	for _, projectID := range projectIDList {
+	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS") {
 
 		opts := &api.Options{
 			ResourceName: &projectID,

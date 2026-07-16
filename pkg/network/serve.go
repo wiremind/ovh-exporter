@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ovh/go-ovh/ovh"
@@ -23,13 +24,36 @@ var ServeCommand = &cli.Command{
 
 var logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
+var apiErrors = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "ovh_exporter_api_errors_total",
+		Help: "Counts OVH API call failures per collector.",
+	},
+	[]string{"collector"},
+)
+
+func projectIDsFromEnv(envVar string) []string {
+	var projectIDs []string
+	for _, projectID := range strings.Split(os.Getenv(envVar), ",") {
+		projectID = strings.TrimSpace(projectID)
+		if projectID != "" {
+			projectIDs = append(projectIDs, projectID)
+		}
+	}
+	return projectIDs
+}
+
 func pingHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintln(w, "pong")
 }
 
 func initializeMetrics() {
+	prometheus.MustRegister(apiErrors)
 	prometheus.MustRegister(cloudProjectInstanceBilling)
+	prometheus.MustRegister(cloudProjectVolumeInfo)
+	prometheus.MustRegister(cloudProjectLoadBalancerInfo)
+	prometheus.MustRegister(cloudProjectFloatingIPInfo)
 	prometheus.MustRegister(dedicatedServerSubscription)
 	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
 	prometheus.MustRegister(servicesSavingsPlansSubscribedPlanSize)
@@ -38,6 +62,15 @@ func initializeMetrics() {
 func updateMetrics(ovhClient *ovh.Client) {
 	cloudProjectInstanceBilling.Reset()
 	updateCloudProviderInstanceBilling(ovhClient)
+
+	cloudProjectVolumeInfo.Reset()
+	updateCloudProjectVolumes(ovhClient)
+
+	cloudProjectLoadBalancerInfo.Reset()
+	updateCloudProjectLoadBalancers(ovhClient)
+
+	cloudProjectFloatingIPInfo.Reset()
+	updateCloudProjectFloatingIPs(ovhClient)
 
 	dedicatedServerSubscription.Reset()
 	dedicatedServerSubscriptionExpirationTimestamp.Reset()
