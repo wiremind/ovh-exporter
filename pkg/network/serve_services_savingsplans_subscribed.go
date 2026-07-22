@@ -1,7 +1,6 @@
 package network
 
 import (
-	"log"
 	"strconv"
 	"strings"
 
@@ -50,6 +49,7 @@ func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, p
 	// Retrieve the savings plans for the given service
 	savingsPlans, err := api.GetServicesSavingPlansSubscribed(ovhClient, serviceID)
 	if err != nil {
+		apiErrors.WithLabelValues("services_savingsplans_subscribed").Inc()
 		logger.Error().Msgf("failed to retrieve savings plans for service %d: %v", serviceID, err)
 		return
 	}
@@ -92,8 +92,8 @@ func updateAllServicesSavingsPlansSubscribed(ovhClient *ovh.Client) {
 
 		result, err := api.GetServices(ovhClient, opts)
 		if err != nil {
-
-			log.Printf("error retrieving services for projectID %s: %v", projectID, err)
+			apiErrors.WithLabelValues("services_savingsplans_subscribed").Inc()
+			logger.Error().Msgf("error retrieving services for projectID %s: %v", projectID, err)
 			continue
 		}
 		for _, service := range result {
