@@ -50,6 +50,7 @@ func pingHandler(w http.ResponseWriter, req *http.Request) {
 
 func initializeMetrics() {
 	prometheus.MustRegister(apiErrors)
+	prometheus.MustRegister(cloudProjectInfo)
 	prometheus.MustRegister(cloudProjectInstanceBilling)
 	prometheus.MustRegister(cloudProjectVolumeInfo)
 	prometheus.MustRegister(cloudProjectLoadBalancerInfo)
@@ -60,6 +61,9 @@ func initializeMetrics() {
 }
 
 func updateMetrics(ovhClient *ovh.Client) {
+	cloudProjectInfo.Reset()
+	updateCloudProjectInfo(ovhClient)
+
 	cloudProjectInstanceBilling.Reset()
 	updateCloudProviderInstanceBilling(ovhClient)
 
