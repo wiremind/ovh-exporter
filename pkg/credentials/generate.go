@@ -31,6 +31,7 @@ type APIKeyRight struct {
 }
 
 var apiKeyRights = []APIKeyRight{
+	{Method: "GET", Endpoint: "/cloud/project/*"},
 	{Method: "GET", Endpoint: "/cloud/project/*/flavor/*"},
 	{Method: "GET", Endpoint: "/cloud/project/*/instance"},
 	{Method: "GET", Endpoint: "/cloud/project/*/instance/*"},
