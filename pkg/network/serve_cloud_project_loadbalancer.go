@@ -30,22 +30,26 @@ func setCloudProjectLoadBalancerInfo(projectID string, regionName string, loadBa
 func updateCloudProjectLoadBalancersPerRegion(ovhClient *ovh.Client, projectID string, regionName string) {
 	logger.Info().Msgf("updating cloud project load balancers for project %s in region %s", projectID, regionName)
 
-	loadBalancers, err := api.GetCloudProjectRegionLoadBalancers(ovhClient, projectID, regionName)
+	err := RefreshScope(
+		ProjectRegionScope{ProjectID: projectID, Region: regionName},
+		CollectorCloudProjectLoadBalancer,
+		func() ([]models.LoadBalancer, error) {
+			return api.GetCloudProjectRegionLoadBalancers(ovhClient, projectID, regionName)
+		},
+		func(loadBalancer models.LoadBalancer) {
+			setCloudProjectLoadBalancerInfo(projectID, regionName, loadBalancer)
+		},
+		cloudProjectLoadBalancerInfo,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_loadbalancer").Inc()
 		logger.Error().Msgf("failed to retrieve load balancers for project %s in region %s: %v", projectID, regionName, err)
-		return
-	}
-
-	for _, loadBalancer := range loadBalancers {
-		setCloudProjectLoadBalancerInfo(projectID, regionName, loadBalancer)
 	}
 }
 
 func updateCloudProjectLoadBalancersPerProjectID(ovhClient *ovh.Client, projectID string) {
 	regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_loadbalancer").Inc()
+		apiErrors.WithLabelValues(CollectorCloudProjectLoadBalancer).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)
 		return
 	}

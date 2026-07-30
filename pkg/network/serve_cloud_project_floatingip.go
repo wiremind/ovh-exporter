@@ -41,22 +41,24 @@ func setCloudProjectFloatingIPInfo(projectID string, regionName string, floating
 func updateCloudProjectFloatingIPsPerRegion(ovhClient *ovh.Client, projectID string, regionName string) {
 	logger.Info().Msgf("updating cloud project floating IPs for project %s in region %s", projectID, regionName)
 
-	floatingIPs, err := api.GetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
+	err := RefreshScope(
+		ProjectRegionScope{ProjectID: projectID, Region: regionName},
+		CollectorCloudProjectFloatingIP,
+		func() ([]models.FloatingIP, error) {
+			return api.GetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
+		},
+		func(floatingIP models.FloatingIP) { setCloudProjectFloatingIPInfo(projectID, regionName, floatingIP) },
+		cloudProjectFloatingIPInfo,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_floatingip").Inc()
 		logger.Error().Msgf("failed to retrieve floating IPs for project %s in region %s: %v", projectID, regionName, err)
-		return
-	}
-
-	for _, floatingIP := range floatingIPs {
-		setCloudProjectFloatingIPInfo(projectID, regionName, floatingIP)
 	}
 }
 
 func updateCloudProjectFloatingIPsPerProjectID(ovhClient *ovh.Client, projectID string) {
 	regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_floatingip").Inc()
+		apiErrors.WithLabelValues(CollectorCloudProjectFloatingIP).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)
 		return
 	}

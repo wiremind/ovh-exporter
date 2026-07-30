@@ -62,22 +62,31 @@ func updateCloudProviderInstanceBillingPerInstance(projectID string, instance mo
 func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, projectID string) {
 	logger.Info().Msgf("updating cloud provider instance billing for project %s", projectID)
 
-	projectInstances, err := api.GetCloudProjectInstances(ovhClient, projectID)
-	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_instance_billing").Inc()
-		logger.Error().Msgf("failed to retrieve instances: %v", err)
-		return
-	}
+	// flavors is filled inside fetch, alongside the instances it describes:
+	// both calls must succeed before the gauge scope is cleared and set uses
+	// flavors to enrich each instance. Shared explicitly via a pointer
+	// between fetch and set instead of relying on implicit closure capture.
+	flavors := new([]models.Flavor)
 
-	flavors, err := api.GetCloudProjectFlavorsPerInstances(ovhClient, projectID, projectInstances)
+	err := RefreshScope(
+		ProjectScope{ProjectID: projectID},
+		CollectorCloudProjectInstanceBilling,
+		func() ([]models.InstanceSummary, error) {
+			instances, err := api.GetCloudProjectInstances(ovhClient, projectID)
+			if err != nil {
+				return nil, err
+			}
+			fetchedFlavors, err := api.GetCloudProjectFlavorsPerInstances(ovhClient, projectID, instances)
+			*flavors = fetchedFlavors
+			return instances, err
+		},
+		func(instance models.InstanceSummary) {
+			updateCloudProviderInstanceBillingPerInstance(projectID, instance, *flavors)
+		},
+		cloudProjectInstanceBilling,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_instance_billing").Inc()
-		logger.Error().Msgf("failed to retrieve flavors: %v", err)
-		return
-	}
-
-	for _, instance := range projectInstances {
-		updateCloudProviderInstanceBillingPerInstance(projectID, instance, flavors)
+		logger.Error().Msgf("failed to retrieve instances or flavors for project %s: %v", projectID, err)
 	}
 }
 

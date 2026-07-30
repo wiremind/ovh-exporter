@@ -38,15 +38,15 @@ func setCloudProjectVolumeInfo(projectID string, volume models.Volume) {
 func updateCloudProjectVolumesPerProjectID(ovhClient *ovh.Client, projectID string) {
 	logger.Info().Msgf("updating cloud project volumes for project %s", projectID)
 
-	volumes, err := api.GetCloudProjectVolumes(ovhClient, projectID)
+	err := RefreshScope(
+		ProjectScope{ProjectID: projectID},
+		CollectorCloudProjectVolume,
+		func() ([]models.Volume, error) { return api.GetCloudProjectVolumes(ovhClient, projectID) },
+		func(volume models.Volume) { setCloudProjectVolumeInfo(projectID, volume) },
+		cloudProjectVolumeInfo,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_volume").Inc()
 		logger.Error().Msgf("failed to retrieve volumes for project %s: %v", projectID, err)
-		return
-	}
-
-	for _, volume := range volumes {
-		setCloudProjectVolumeInfo(projectID, volume)
 	}
 }
 
