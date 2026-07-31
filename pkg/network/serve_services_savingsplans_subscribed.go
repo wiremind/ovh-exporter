@@ -7,6 +7,7 @@ import (
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/api"
+	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/models"
 )
 
 // Defining the gauge vector for saving plans
@@ -46,38 +47,31 @@ func setServiceSavingsPlansSubscribedPlanSize(projectID string, instanceName str
 func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, projectID string) {
 	logger.Info().Msgf("updating service savings plan subscription for service %d", serviceID)
 
-	// Retrieve the savings plans for the given service
-	savingsPlans, err := api.GetServicesSavingPlansSubscribed(ovhClient, serviceID)
+	err := RefreshScope(
+		ServiceScope{ServiceID: strconv.Itoa(serviceID)},
+		CollectorServicesSavingsPlansSubscribed,
+		func() ([]models.SavingsPlan, error) {
+			return api.GetServicesSavingPlansSubscribed(ovhClient, serviceID)
+		},
+		func(savingsPlan models.SavingsPlan) {
+			logger.Info().Msgf("processing savings plan %s for service %d", savingsPlan.ID, serviceID)
+			setServiceSavingsPlansSubscribedPlanSize(
+				projectID,
+				savingsPlan.DisplayName,
+				strconv.Itoa(serviceID),
+				savingsPlan.Period,
+				savingsPlan.Flavor,
+				savingsPlan.ID,
+				string(savingsPlan.Status),
+				savingsPlan.PeriodStartDate,
+				savingsPlan.PeriodEndDate,
+				savingsPlan.Size,
+			)
+		},
+		servicesSavingsPlansSubscribedPlanSize,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("services_savingsplans_subscribed").Inc()
 		logger.Error().Msgf("failed to retrieve savings plans for service %d: %v", serviceID, err)
-		return
-	}
-
-	// Check if savingsPlans slice is empty
-	if len(savingsPlans) == 0 {
-		logger.Warn().Msgf("no savings plans found for service %d", serviceID)
-		return
-	}
-
-	// Iterate through all savings plans (in case there are multiple)
-	for _, savingsPlan := range savingsPlans {
-		// Log each plan being processed
-		logger.Info().Msgf("processing savings plan %s for service %d", savingsPlan.ID, serviceID)
-
-		// Set the values in the Prometheus gauge for each plan
-		setServiceSavingsPlansSubscribedPlanSize(
-			projectID,
-			savingsPlan.DisplayName,
-			strconv.Itoa(serviceID),
-			savingsPlan.Period,
-			savingsPlan.Flavor,
-			savingsPlan.ID,
-			string(savingsPlan.Status),
-			savingsPlan.PeriodStartDate,
-			savingsPlan.PeriodEndDate,
-			savingsPlan.Size,
-		)
 	}
 }
 
@@ -92,7 +86,7 @@ func updateAllServicesSavingsPlansSubscribed(ovhClient *ovh.Client) {
 
 		result, err := api.GetServices(ovhClient, opts)
 		if err != nil {
-			apiErrors.WithLabelValues("services_savingsplans_subscribed").Inc()
+			apiErrors.WithLabelValues(CollectorServicesSavingsPlansSubscribed).Inc()
 			logger.Error().Msgf("error retrieving services for projectID %s: %v", projectID, err)
 			continue
 		}

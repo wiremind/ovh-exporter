@@ -29,6 +29,11 @@ ${BINARY_NAME}: ${BINARY_FILES}
 	${GO} build ${GO_GCFLAGS} ${GO_LDFLAGS} -o $@ cmd/${BINARY_NAME}/*.go
 	strip -x $@
 
+## Runs all the go tests in the application.
+.PHONY: test
+test:
+	${GO} test ./...
+
 ## Lints all the go code in the application.
 .PHONY: lint
 lint: dependencies

@@ -60,27 +60,18 @@ func initializeMetrics() {
 	prometheus.MustRegister(servicesSavingsPlansSubscribedPlanSize)
 }
 
+// Each collector invalidates only the label scope it has just
+// successfully re-fetched (DeletePartialMatch then set): a failed OVH
+// API call keeps the previous values instead of leaving a hole until
+// the next refresh, which made downstream alerts flap. Series for
+// scopes removed from the watch lists persist until the next restart.
 func updateMetrics(ovhClient *ovh.Client) {
-	cloudProjectInfo.Reset()
 	updateCloudProjectInfo(ovhClient)
-
-	cloudProjectInstanceBilling.Reset()
 	updateCloudProviderInstanceBilling(ovhClient)
-
-	cloudProjectVolumeInfo.Reset()
 	updateCloudProjectVolumes(ovhClient)
-
-	cloudProjectLoadBalancerInfo.Reset()
 	updateCloudProjectLoadBalancers(ovhClient)
-
-	cloudProjectFloatingIPInfo.Reset()
 	updateCloudProjectFloatingIPs(ovhClient)
-
-	dedicatedServerSubscription.Reset()
-	dedicatedServerSubscriptionExpirationTimestamp.Reset()
 	updateDedicatedServersSubscription(ovhClient)
-
-	servicesSavingsPlansSubscribedPlanSize.Reset()
 	updateAllServicesSavingsPlansSubscribed(ovhClient)
 }
 

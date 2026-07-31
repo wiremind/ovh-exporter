@@ -23,6 +23,21 @@ jobs:
         with:
           version: v2.12.2
 
+  test:
+    name: Go tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: go test
+        run: make test
+
   container:
     name: Containerfile
     runs-on: ubuntu-24.04

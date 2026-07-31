@@ -4,6 +4,7 @@ import (
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/api"
+	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/models"
 )
 
 var cloudProjectInfo = prometheus.NewGaugeVec(
@@ -14,16 +15,7 @@ var cloudProjectInfo = prometheus.NewGaugeVec(
 	[]string{"project_id", "description", "status"},
 )
 
-func updateCloudProjectInfoPerProjectID(ovhClient *ovh.Client, projectID string) {
-	logger.Info().Msgf("updating cloud project info for project %s", projectID)
-
-	project, err := api.GetCloudProject(ovhClient, projectID)
-	if err != nil {
-		apiErrors.WithLabelValues("cloud_project_info").Inc()
-		logger.Error().Msgf("failed to retrieve cloud project %s: %v", projectID, err)
-		return
-	}
-
+func setCloudProjectInfo(project models.CloudProject) {
 	description := "undefined"
 	if project.Description != nil {
 		description = *project.Description
@@ -34,6 +26,27 @@ func updateCloudProjectInfoPerProjectID(ovhClient *ovh.Client, projectID string)
 		"description": description,
 		"status":      project.Status,
 	}).Set(1)
+}
+
+func updateCloudProjectInfoPerProjectID(ovhClient *ovh.Client, projectID string) {
+	logger.Info().Msgf("updating cloud project info for project %s", projectID)
+
+	err := RefreshScope(
+		ProjectScope{ProjectID: projectID},
+		CollectorCloudProjectInfo,
+		func() ([]models.CloudProject, error) {
+			project, err := api.GetCloudProject(ovhClient, projectID)
+			if err != nil {
+				return nil, err
+			}
+			return []models.CloudProject{project}, nil
+		},
+		setCloudProjectInfo,
+		cloudProjectInfo,
+	)
+	if err != nil {
+		logger.Error().Msgf("failed to retrieve cloud project %s: %v", projectID, err)
+	}
 }
 
 func updateCloudProjectInfo(ovhClient *ovh.Client) {

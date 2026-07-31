@@ -84,7 +84,7 @@ func updateDedicatedServerSubscription(ovhClient *ovh.Client, server models.Serv
 
 	serviceInfos, err := api.GetDedicatedServerServiceInfos(ovhClient, server.ID)
 	if err != nil {
-		apiErrors.WithLabelValues("dedicated_server_subscription").Inc()
+		apiErrors.WithLabelValues(CollectorDedicatedServerSubscription).Inc()
 		logger.Error().Msgf("failed to retrieve dedicated server serviceinfos: %v", err)
 		return
 	}
@@ -100,14 +100,19 @@ func updateDedicatedServersSubscription(ovhClient *ovh.Client) {
 
 	logger.Info().Msgf("updating dedicated server subscription")
 
-	servers, err := api.GetDedicatedServers(ovhClient)
+	// The server list has no natural per-project scope to key off, so an
+	// empty scope clears both gauges entirely - but only once the list call
+	// has actually succeeded. A failure fetching one server's own service
+	// info inside updateDedicatedServerSubscription only leaves that one
+	// server stale, same as before.
+	err := RefreshScope(
+		GlobalScope{},
+		CollectorDedicatedServerSubscription,
+		func() ([]models.Server, error) { return api.GetDedicatedServers(ovhClient) },
+		func(server models.Server) { updateDedicatedServerSubscription(ovhClient, server) },
+		dedicatedServerSubscription, dedicatedServerSubscriptionExpirationTimestamp,
+	)
 	if err != nil {
-		apiErrors.WithLabelValues("dedicated_server_subscription").Inc()
 		logger.Error().Msgf("failed to retrieve servers: %v", err)
-		return
-	}
-
-	for _, server := range servers {
-		updateDedicatedServerSubscription(ovhClient, server)
 	}
 }
