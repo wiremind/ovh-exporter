@@ -51,14 +51,20 @@ The projects' id can be found in the `Public Cloud` tab of OVH console.
 ### Cloudflare dangling-DNS check (optional)
 
 If `CLOUDFLARE_API_TOKEN` is set, ovh-exporter also cross-checks Cloudflare
-DNS against OVH: for every floating IP that is reserved on OVH but no longer
-attached to an instance or gateway, it looks for a Cloudflare DNS `A` record
-still pointing at that IP. A match means the DNS name is dangling — whoever
-next reserves that floating IP on OVH (us later, or an attacker if it's ever
-released) starts receiving the traffic the DNS name still sends there. This
-is exposed as `ovh_exporter_cloudflare_dangling_floatingip_dns_info`; any
-series on it is a finding to act on (delete the DNS record, or release the
-floating IP).
+DNS against OVH: for every Cloudflare DNS `A` record, it checks whether the
+record's IP is currently reserved as an OVH floating IP by one of the
+watched projects. If it isn't, the record is flagged — floating IPs come
+from a pool OVH shares across customers, so whoever reserves that exact
+address next starts receiving the traffic the DNS name still sends there.
+This is exposed as `ovh_exporter_cloudflare_dangling_floatingip_dns_info`;
+any series on it is a finding to act on (fix or delete the DNS record, or
+re-reserve the floating IP if it's still needed).
+
+This only checks OVH's side: a record also shows up here if it legitimately
+points somewhere other than OVH (another cloud, on-prem...). There's no way
+to tell that apart from an actually released floating IP without knowing
+which OVH address ranges are involved, so expect some noise from records
+that were never meant to resolve to an OVH floating IP.
 
 Leave `CLOUDFLARE_API_TOKEN` empty to disable the check entirely.
 

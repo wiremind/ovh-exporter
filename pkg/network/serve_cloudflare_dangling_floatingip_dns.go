@@ -10,63 +10,57 @@ import (
 	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/models"
 )
 
-// cloudflareDanglingFloatingIPDNSInfo flags Cloudflare DNS records that
-// still resolve to an OVH floating IP we hold but that is no longer attached
-// to any instance or gateway. As long as the record exists, whoever manages
-// to (re-)reserve that same floating IP on OVH — us later, or an attacker if
-// it ever gets released — starts receiving the traffic the DNS name still
-// sends there. This is a dangling-DNS / subdomain-takeover setup, so any
-// series on this gauge is a finding to act on: delete the DNS record, or
-// release the floating IP if it truly serves no purpose.
+// cloudflareDanglingFloatingIPDNSInfo flags Cloudflare DNS A records whose
+// target IP is not currently reserved as an OVH floating IP by any of the
+// watched projects. Floating IPs are drawn from a pool OVH shares across
+// customers: if a DNS record points at one we don't hold, whoever reserves
+// that exact address next on OVH starts receiving the traffic the record
+// still sends there. Any series here is a finding to act on: fix or delete
+// the DNS record, or re-reserve the floating IP if it's actually still
+// needed.
+//
+// This only checks OVH's side of the equation: a record can also show up
+// here simply because it legitimately points somewhere other than OVH
+// (another cloud, on-prem...). This exporter has no way to tell that case
+// apart from an actually released floating IP without knowing which OVH
+// address ranges are involved, so expect noise from records that were
+// never meant to resolve to an OVH floating IP.
 var cloudflareDanglingFloatingIPDNSInfo = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "ovh_exporter_cloudflare_dangling_floatingip_dns_info",
-		Help: "Flags Cloudflare DNS records pointing at an OVH floating IP that is reserved but not attached to anything. Value is always 1; any series here is a dangling-DNS finding.",
+		Help: "Flags Cloudflare DNS A records whose IP is not currently reserved as an OVH floating IP by any watched project. Value is always 1.",
 	},
-	[]string{"zone", "record_name", "record_type", "ip", "floatingip_id", "project_id", "region"},
+	[]string{"zone", "record_name", "record_type", "ip"},
 )
 
-// unusedFloatingIP is a floating IP found reserved but unattached
-// (AssociatedEntity == nil), indexed by IP address so a DNS record's content
-// can be looked up directly.
-type unusedFloatingIP struct {
-	FloatingIPID string
-	ProjectID    string
-	Region       string
-}
-
-// addUnusedFloatingIPs scans one project/region's floating IPs and records
-// into unused every one that is reserved but currently unattached
-// (AssociatedEntity == nil), keyed by IP address. It is a pure function
-// (no OVH call, no global state) so the matching rule can be unit-tested
-// without a live client.
+// addReservedFloatingIPs records into reserved every IP from floatingIPs,
+// attached or not: as long as OVH still reports it as ours, nobody else on
+// OVH can reserve that exact address. It is a pure function (no OVH call,
+// no global state) so the matching rule can be unit-tested without a live
+// client.
 //
-// OVH's API response is untyped JSON decoded straight into models.FloatingIP
-// (see pkg/ovhsdk/models): a future field rename, a null where a string was
-// expected, or a genuinely empty IP would decode as Go zero values rather
-// than fail the call. An empty IP is therefore ignored here instead of
-// blindly indexed — matching on "" against a Cloudflare record with equally
-// empty content would otherwise fabricate a finding out of two unrelated
-// blanks.
-func addUnusedFloatingIPs(unused map[string]unusedFloatingIP, floatingIPs []models.FloatingIP, projectID string, region string) {
+// OVH's response is untyped JSON decoded straight into models.FloatingIP
+// (see pkg/ovhsdk/models): a future field rename or a null where a string
+// was expected would decode as a Go zero value rather than fail the call.
+// An empty IP is therefore ignored here instead of blindly indexed - it
+// would otherwise make every Cloudflare record with equally empty content
+// look "reserved" by coincidence.
+func addReservedFloatingIPs(reserved map[string]bool, floatingIPs []models.FloatingIP) {
 	for _, floatingIP := range floatingIPs {
-		if floatingIP.AssociatedEntity != nil {
-			continue
-		}
 		if floatingIP.IP == "" {
 			continue
 		}
-		unused[floatingIP.IP] = unusedFloatingIP{FloatingIPID: floatingIP.ID, ProjectID: projectID, Region: region}
+		reserved[floatingIP.IP] = true
 	}
 }
 
-// collectUnusedFloatingIPs walks every region of every watched cloud project
-// and returns the floating IPs that are reserved but currently unattached,
-// keyed by IP address. A failure on one project/region is reported to
+// collectReservedFloatingIPs walks every region of every watched cloud
+// project and returns the set of floating IPs currently reserved by us,
+// attached or not. A failure on one project/region is reported to
 // apiErrors and skipped rather than aborting the whole scan, so one broken
 // project can't hide dangling DNS on the others.
-func collectUnusedFloatingIPs(ovhClient *ovh.Client) map[string]unusedFloatingIP {
-	unused := make(map[string]unusedFloatingIP)
+func collectReservedFloatingIPs(ovhClient *ovh.Client) map[string]bool {
+	reserved := make(map[string]bool)
 
 	for _, projectID := range projectIDsFromEnv(EnvOVHCloudProjectInventoryProjectIDs) {
 		regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
@@ -84,57 +78,47 @@ func collectUnusedFloatingIPs(ovhClient *ovh.Client) map[string]unusedFloatingIP
 				continue
 			}
 
-			addUnusedFloatingIPs(unused, floatingIPs, projectID, regionName)
+			addReservedFloatingIPs(reserved, floatingIPs)
 		}
 	}
 
-	return unused
+	return reserved
 }
 
-// danglingRecord is a Cloudflare DNS record found pointing at an unused
-// floating IP, carrying enough OVH context to act on the finding.
+// danglingRecord is a Cloudflare DNS record found pointing at an IP not
+// currently reserved as an OVH floating IP.
 type danglingRecord struct {
-	Zone         string
-	RecordName   string
-	RecordType   string
-	IP           string
-	FloatingIPID string
-	ProjectID    string
-	Region       string
+	Zone       string
+	RecordName string
+	RecordType string
+	IP         string
 }
 
 // matchDanglingRecords is the actual security check: it flags every DNS
-// record whose content matches a floating IP OVH still reserves for us but
-// no longer attaches to anything. Kept as a pure function, independent of
-// both the Cloudflare and OVH clients, so this matching rule — the one
-// piece of logic that actually has to be correct — can be unit-tested
-// directly instead of only through a live end-to-end run.
+// record whose content is not one of the floating IPs we currently reserve
+// on OVH. Kept as a pure function, independent of both the Cloudflare and
+// OVH clients, so this matching rule can be unit-tested directly instead of
+// only through a live end-to-end run.
 //
 // dnsRecord.Content is untyped data from Cloudflare's API, same caveat as
 // OVH's: an empty content (a record type this exporter doesn't expect, or a
-// future schema change) is skipped rather than matched against a floating
-// IP that was itself skipped for being empty.
-func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, unused map[string]unusedFloatingIP) []danglingRecord {
+// future schema change) is skipped rather than flagged as dangling.
+func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reservedFloatingIPs map[string]bool) []danglingRecord {
 	var records []danglingRecord
 
 	for _, dnsRecord := range dnsRecords {
 		if dnsRecord.Content == "" {
 			continue
 		}
-
-		found, ok := unused[dnsRecord.Content]
-		if !ok {
+		if reservedFloatingIPs[dnsRecord.Content] {
 			continue
 		}
 
 		records = append(records, danglingRecord{
-			Zone:         dnsRecord.ZoneName,
-			RecordName:   dnsRecord.Name,
-			RecordType:   dnsRecord.Type,
-			IP:           dnsRecord.Content,
-			FloatingIPID: found.FloatingIPID,
-			ProjectID:    found.ProjectID,
-			Region:       found.Region,
+			Zone:       dnsRecord.ZoneName,
+			RecordName: dnsRecord.Name,
+			RecordType: dnsRecord.Type,
+			IP:         dnsRecord.Content,
 		})
 	}
 
@@ -143,26 +127,23 @@ func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, unused map[st
 
 func setCloudflareDanglingFloatingIPDNSInfo(record danglingRecord) {
 	cloudflareDanglingFloatingIPDNSInfo.With(prometheus.Labels{
-		"zone":          record.Zone,
-		"record_name":   record.RecordName,
-		"record_type":   record.RecordType,
-		"ip":            record.IP,
-		"floatingip_id": record.FloatingIPID,
-		"project_id":    record.ProjectID,
-		"region":        record.Region,
+		"zone":        record.Zone,
+		"record_name": record.RecordName,
+		"record_type": record.RecordType,
+		"ip":          record.IP,
 	}).Set(1)
 }
 
-// updateCloudflareDanglingFloatingIPDNS cross-checks every Cloudflare DNS
-// A record we can see against the OVH floating IPs currently unattached. It
-// uses GlobalScope: unlike the other collectors there is no natural
+// updateCloudflareDanglingFloatingIPDNS cross-checks every Cloudflare DNS A
+// record we can see against the OVH floating IPs currently reserved by us.
+// It uses GlobalScope: unlike the other collectors there is no natural
 // per-item label to scope a partial refresh on, since a finding is defined
 // by matching two independent APIs (OVH and Cloudflare) rather than by
 // enumerating a single list.
 func updateCloudflareDanglingFloatingIPDNS(ovhClient *ovh.Client, cfClient *cloudflare.Client) {
-	logger.Info().Msg("cross-checking Cloudflare DNS records against unused OVH floating IPs")
+	logger.Info().Msg("cross-checking Cloudflare DNS records against OVH floating IPs")
 
-	unusedFloatingIPs := collectUnusedFloatingIPs(ovhClient)
+	reservedFloatingIPs := collectReservedFloatingIPs(ovhClient)
 
 	err := RefreshScope(
 		GlobalScope{},
@@ -180,7 +161,7 @@ func updateCloudflareDanglingFloatingIPDNS(ovhClient *ovh.Client, cfClient *clou
 					return nil, err
 				}
 
-				records = append(records, matchDanglingRecords(dnsRecords, unusedFloatingIPs)...)
+				records = append(records, matchDanglingRecords(dnsRecords, reservedFloatingIPs)...)
 			}
 
 			return records, nil
