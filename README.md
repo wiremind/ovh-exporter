@@ -28,6 +28,7 @@ export OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS=""
 export OVH_DEDICATED_SERVER_SUBSCRIPTION_ENABLED="true"
 export OVH_CACHE_UPDATE_INTERVAL="300"
 export SERVER_PORT="8080"
+export CLOUDFLARE_API_TOKEN=""
 ```
 
 To use the compose, add a `ovh-exporter.env` file at the root of your project with the variables filled in:
@@ -42,9 +43,29 @@ OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS=""
 OVH_DEDICATED_SERVER_SUBSCRIPTION_ENABLED="true"
 OVH_CACHE_UPDATE_INTERVAL="300"
 SERVER_PORT="8080"
+CLOUDFLARE_API_TOKEN=""
 ```
 
 The projects' id can be found in the `Public Cloud` tab of OVH console.
+
+### Cloudflare dangling-DNS check (optional)
+
+If `CLOUDFLARE_API_TOKEN` is set, ovh-exporter also cross-checks Cloudflare
+DNS against OVH: for every floating IP that is reserved on OVH but no longer
+attached to an instance or gateway, it looks for a Cloudflare DNS `A` record
+still pointing at that IP. A match means the DNS name is dangling — whoever
+next reserves that floating IP on OVH (us later, or an attacker if it's ever
+released) starts receiving the traffic the DNS name still sends there. This
+is exposed as `ovh_exporter_cloudflare_dangling_floatingip_dns_info`; any
+series on it is a finding to act on (delete the DNS record, or release the
+floating IP).
+
+Leave `CLOUDFLARE_API_TOKEN` empty to disable the check entirely.
+
+The token needs, scoped to the zones you want checked (or "All zones"):
+
+- `Zone` → `Zone` → `Read`
+- `Zone` → `DNS` → `Read`
 
 ## Running
 
