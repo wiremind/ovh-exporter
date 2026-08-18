@@ -76,10 +76,10 @@ func updateMetrics(ovhClient *ovh.Client) {
 }
 
 func setupCacheUpdater(ovhClient *ovh.Client) {
-	intervalStr := os.Getenv("OVH_CACHE_UPDATE_INTERVAL")
+	intervalStr := os.Getenv(EnvOVHCacheUpdateInterval)
 	intervalSeconds, err := strconv.Atoi(intervalStr)
 	if err != nil {
-		logger.Fatal().Msgf("failed to parse OVH_CACHE_UPDATE_INTERVAL: %v", err)
+		logger.Fatal().Msgf("failed to parse %s: %v", EnvOVHCacheUpdateInterval, err)
 	}
 	cacheUpdateInterval := time.Duration(intervalSeconds) * time.Second
 
@@ -99,10 +99,10 @@ func serveRoutes(ctx context.Context, cmd *cli.Command) error {
 	initializeMetrics()
 
 	ovhClient, err := ovh.NewClient(
-		os.Getenv("OVH_ENDPOINT"),
-		os.Getenv("OVH_APP_KEY"),
-		os.Getenv("OVH_APP_SECRET"),
-		os.Getenv("OVH_CONSUMER_KEY"),
+		os.Getenv(EnvOVHEndpoint),
+		os.Getenv(EnvOVHAppKey),
+		os.Getenv(EnvOVHAppSecret),
+		os.Getenv(EnvOVHConsumerKey),
 	)
 	if err != nil {
 		logger.Fatal().Msgf("failed to create OVH client: %v", err)
@@ -111,7 +111,7 @@ func serveRoutes(ctx context.Context, cmd *cli.Command) error {
 	http.HandleFunc("/ping", pingHandler)
 	http.Handle("/metrics", promhttp.Handler())
 
-	serverPort := os.Getenv("SERVER_PORT")
+	serverPort := os.Getenv(EnvServerPort)
 	formattedServerPort := fmt.Sprintf(":%s", serverPort)
 	logger.Info().Msgf("server started on port %s", formattedServerPort)
 
