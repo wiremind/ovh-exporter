@@ -31,4 +31,8 @@ const (
 
 	// EnvServerPort is the port the HTTP server listens on.
 	EnvServerPort = "SERVER_PORT"
+
+	// EnvCloudflareAPIToken enables the Cloudflare dangling floating IP DNS
+	// check when set. Left empty, the check is skipped entirely.
+	EnvCloudflareAPIToken = "CLOUDFLARE_API_TOKEN"
 )

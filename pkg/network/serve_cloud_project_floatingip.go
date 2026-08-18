@@ -3,7 +3,6 @@ package network
 import (
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/api"
 	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/models"
 )
 
@@ -45,7 +44,7 @@ func updateCloudProjectFloatingIPsPerRegion(ovhClient *ovh.Client, projectID str
 		ProjectRegionScope{ProjectID: projectID, Region: regionName},
 		CollectorCloudProjectFloatingIP,
 		func() ([]models.FloatingIP, error) {
-			return api.GetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
+			return cachedGetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
 		},
 		func(floatingIP models.FloatingIP) { setCloudProjectFloatingIPInfo(projectID, regionName, floatingIP) },
 		cloudProjectFloatingIPInfo,
@@ -56,7 +55,7 @@ func updateCloudProjectFloatingIPsPerRegion(ovhClient *ovh.Client, projectID str
 }
 
 func updateCloudProjectFloatingIPsPerProjectID(ovhClient *ovh.Client, projectID string) {
-	regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
+	regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
 	if err != nil {
 		apiErrors.WithLabelValues(CollectorCloudProjectFloatingIP).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)
