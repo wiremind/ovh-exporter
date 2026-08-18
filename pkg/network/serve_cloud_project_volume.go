@@ -51,7 +51,7 @@ func updateCloudProjectVolumesPerProjectID(ovhClient *ovh.Client, projectID stri
 }
 
 func updateCloudProjectVolumes(ovhClient *ovh.Client) {
-	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS") {
+	for _, projectID := range projectIDsFromEnv(EnvOVHCloudProjectInventoryProjectIDs) {
 		updateCloudProjectVolumesPerProjectID(ovhClient, projectID)
 	}
 }
