@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	cloudflare "github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/option"
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -58,6 +60,20 @@ func initializeMetrics() {
 	prometheus.MustRegister(dedicatedServerSubscription)
 	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
 	prometheus.MustRegister(servicesSavingsPlansSubscribedPlanSize)
+	prometheus.MustRegister(cloudflareDanglingFloatingIPDNSInfo)
+}
+
+// newCloudflareClient returns nil when CLOUDFLARE_API_TOKEN is unset, so the
+// dangling-DNS check stays an opt-in feature instead of a hard requirement
+// for every ovh-exporter deployment.
+func newCloudflareClient() *cloudflare.Client {
+	cloudflareAPIToken := os.Getenv(EnvCloudflareAPIToken)
+	if cloudflareAPIToken == "" {
+		logger.Info().Msgf("%s not set, disabling the Cloudflare dangling floating IP DNS check", EnvCloudflareAPIToken)
+		return nil
+	}
+
+	return cloudflare.NewClient(option.WithAPIToken(cloudflareAPIToken))
 }
 
 // Each collector invalidates only the label scope it has just
@@ -65,7 +81,7 @@ func initializeMetrics() {
 // API call keeps the previous values instead of leaving a hole until
 // the next refresh, which made downstream alerts flap. Series for
 // scopes removed from the watch lists persist until the next restart.
-func updateMetrics(ovhClient *ovh.Client) {
+func updateMetrics(ovhClient *ovh.Client, cfClient *cloudflare.Client) {
 	updateCloudProjectInfo(ovhClient)
 	updateCloudProviderInstanceBilling(ovhClient)
 	updateCloudProjectVolumes(ovhClient)
@@ -73,9 +89,12 @@ func updateMetrics(ovhClient *ovh.Client) {
 	updateCloudProjectFloatingIPs(ovhClient)
 	updateDedicatedServersSubscription(ovhClient)
 	updateAllServicesSavingsPlansSubscribed(ovhClient)
+	if cfClient != nil {
+		updateCloudflareDanglingFloatingIPDNS(ovhClient, cfClient)
+	}
 }
 
-func setupCacheUpdater(ovhClient *ovh.Client) {
+func setupCacheUpdater(ovhClient *ovh.Client, cfClient *cloudflare.Client) {
 	intervalStr := os.Getenv(EnvOVHCacheUpdateInterval)
 	intervalSeconds, err := strconv.Atoi(intervalStr)
 	if err != nil {
@@ -89,7 +108,7 @@ func setupCacheUpdater(ovhClient *ovh.Client) {
 	defer ticker.Stop()
 
 	for {
-		updateMetrics(ovhClient)
+		updateMetrics(ovhClient, cfClient)
 
 		<-ticker.C
 	}
@@ -108,6 +127,8 @@ func serveRoutes(ctx context.Context, cmd *cli.Command) error {
 		logger.Fatal().Msgf("failed to create OVH client: %v", err)
 	}
 
+	cfClient := newCloudflareClient()
+
 	http.HandleFunc("/ping", pingHandler)
 	http.Handle("/metrics", promhttp.Handler())
 
@@ -115,7 +136,7 @@ func serveRoutes(ctx context.Context, cmd *cli.Command) error {
 	formattedServerPort := fmt.Sprintf(":%s", serverPort)
 	logger.Info().Msgf("server started on port %s", formattedServerPort)
 
-	go setupCacheUpdater(ovhClient)
+	go setupCacheUpdater(ovhClient, cfClient)
 
 	return http.ListenAndServe(formattedServerPort, nil)
 }
