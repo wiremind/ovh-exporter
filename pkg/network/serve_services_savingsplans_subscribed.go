@@ -78,7 +78,7 @@ func updateServiceSavingsPlansSubscribed(ovhClient *ovh.Client, serviceID int, p
 // Function to update the savings plan subscription for all services
 func updateAllServicesSavingsPlansSubscribed(ovhClient *ovh.Client) {
 	// Loop through each projectID in the projectIDList
-	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS") {
+	for _, projectID := range projectIDsFromEnv(EnvOVHCloudProjectInstanceBillingProjectIDs) {
 
 		opts := &api.Options{
 			ResourceName: &projectID,

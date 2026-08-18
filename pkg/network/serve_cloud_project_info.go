@@ -51,7 +51,7 @@ func updateCloudProjectInfoPerProjectID(ovhClient *ovh.Client, projectID string)
 
 func updateCloudProjectInfo(ovhClient *ovh.Client) {
 	seen := make(map[string]bool)
-	for _, envVar := range []string{"OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS", "OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS"} {
+	for _, envVar := range []string{EnvOVHCloudProjectInstanceBillingProjectIDs, EnvOVHCloudProjectInventoryProjectIDs} {
 		for _, projectID := range projectIDsFromEnv(envVar) {
 			if seen[projectID] {
 				continue

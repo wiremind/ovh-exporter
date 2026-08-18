@@ -91,7 +91,7 @@ func updateCloudProviderInstanceBillingPerProjectID(ovhClient *ovh.Client, proje
 }
 
 func updateCloudProviderInstanceBilling(ovhClient *ovh.Client) {
-	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INSTANCE_BILLING_PROJECT_IDS") {
+	for _, projectID := range projectIDsFromEnv(EnvOVHCloudProjectInstanceBillingProjectIDs) {
 		updateCloudProviderInstanceBillingPerProjectID(ovhClient, projectID)
 	}
 }

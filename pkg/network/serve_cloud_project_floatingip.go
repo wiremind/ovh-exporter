@@ -69,7 +69,7 @@ func updateCloudProjectFloatingIPsPerProjectID(ovhClient *ovh.Client, projectID 
 }
 
 func updateCloudProjectFloatingIPs(ovhClient *ovh.Client) {
-	for _, projectID := range projectIDsFromEnv("OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS") {
+	for _, projectID := range projectIDsFromEnv(EnvOVHCloudProjectInventoryProjectIDs) {
 		updateCloudProjectFloatingIPsPerProjectID(ovhClient, projectID)
 	}
 }

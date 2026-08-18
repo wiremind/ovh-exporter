@@ -94,7 +94,7 @@ func updateDedicatedServerSubscription(ovhClient *ovh.Client, server models.Serv
 }
 
 func updateDedicatedServersSubscription(ovhClient *ovh.Client) {
-	if os.Getenv("OVH_DEDICATED_SERVER_SUBSCRIPTION_ENABLED") == "false" {
+	if os.Getenv(EnvOVHDedicatedServerSubscriptionEnabled) == "false" {
 		return
 	}
 
