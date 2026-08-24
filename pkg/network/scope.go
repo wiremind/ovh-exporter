@@ -14,6 +14,7 @@ const (
 	CollectorCloudProjectFloatingIP         = "cloud_project_floatingip"
 	CollectorDedicatedServerSubscription    = "dedicated_server_subscription"
 	CollectorServicesSavingsPlansSubscribed = "services_savingsplans_subscribed"
+	CollectorCloudflareDanglingDNS          = "cloudflare_dangling_dns"
 )
 
 // Scope identifies which label combination a RefreshScope call clears
