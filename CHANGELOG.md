@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v2.4.0 - 2026-08-31
+#### Features
+- (**cloudflare**) flag DNS records whose IP OVH does not currently reserve - (23e1ff2) - Etienne Vaneecloo
+#### Refactoring
+- (**network**) centralize env var names as constants and add unit tests - (02df458) - Etienne Vaneecloo
+
+- - -
+
 ## v2.3.3 - 2026-07-31
 #### Bug Fixes
 - (**metrics**) invalidate per fetched scope instead of global Reset - (3f1adf2) - Etienne Vaneecloo, *Cédric de Saint Martin*
