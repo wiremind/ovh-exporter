@@ -99,6 +99,34 @@ The token needs, scoped to the zones you want checked (or "All zones"):
 - `Zone` → `Zone` → `Read`
 - `Zone` → `DNS` → `Read`
 
+### Object Storage metrics
+
+For every project listed in `OVH_CLOUD_PROJECT_INVENTORY_PROJECT_IDS`, the exporter walks the
+project's regions and reports the aggregate usage of each S3-compatible Object Storage bucket:
+
+| Metric | Description |
+| --- | --- |
+| `ovh_exporter_cloud_project_object_storage_objects` | Number of objects stored in an OVHcloud Object Storage bucket. |
+| `ovh_exporter_cloud_project_object_storage_bytes` | Number of bytes stored in an OVHcloud Object Storage bucket. |
+
+Both are labelled `project_id`, `region` and `bucket`:
+
+```text
+ovh_exporter_cloud_project_object_storage_objects{project_id="...",region="EU-WEST-PAR",bucket="backups"} 42
+ovh_exporter_cloud_project_object_storage_bytes{project_id="...",region="EU-WEST-PAR",bucket="backups"} 1337
+```
+
+The values come from the `objectsCount` and `objectsSize` aggregates of
+`GET /cloud/project/{serviceName}/region/{regionName}/storage`, which requires the OVH IAM
+permission `publicCloudProject:apiovh:region/storage/get` (covered by the
+`GET /cloud/project/*/region/*/storage` right emitted by `ovh-exporter credentials`). No S3
+credentials are needed and no object is ever enumerated.
+
+> **Note:** OVHcloud documents `objectsSize` as the container's total object size, but it is not
+> specified whether non-current versions are included when S3 versioning is enabled. The exporter
+> reports whatever the control-plane returns; on versioned buckets this figure may therefore differ
+> from the sum of the current objects' sizes.
+
 ## Running
 
 ### Running the Binary
