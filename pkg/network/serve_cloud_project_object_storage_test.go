@@ -52,14 +52,20 @@ func writeStubBody(w http.ResponseWriter, body string) {
 	_, _ = fmt.Fprint(w, body)
 }
 
-func resetObjectStorageGauges(t *testing.T) {
+// resetObjectStorageState puts the package-level state a test depends on
+// back to what it looks like at the start of a refresh cycle. Flushing
+// ovhAPICache is what updateMetrics does per cycle: without it a test
+// would read the region list a previous test cached under the same
+// project id and silently skip the regions it just stubbed.
+func resetObjectStorageState(t *testing.T) {
 	t.Helper()
-	cloudProjectObjectStorageObjects.Reset()
-	cloudProjectObjectStorageBytes.Reset()
-	t.Cleanup(func() {
+	reset := func() {
 		cloudProjectObjectStorageObjects.Reset()
 		cloudProjectObjectStorageBytes.Reset()
-	})
+		ovhAPICache.Flush()
+	}
+	reset()
+	t.Cleanup(reset)
 }
 
 func assertObjectStorageGauges(t *testing.T, wantObjects, wantBytes string) {
@@ -82,7 +88,7 @@ func assertObjectStorageGauges(t *testing.T, wantObjects, wantBytes string) {
 }
 
 func TestUpdateCloudProjectObjectStorage_BucketProducesBothMetrics(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	client := newStorageTestClient(t, storageStub{
@@ -106,7 +112,7 @@ func TestUpdateCloudProjectObjectStorage_BucketProducesBothMetrics(t *testing.T)
 }
 
 func TestUpdateCloudProjectObjectStorage_MultipleBucketsAreIndependentSeries(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	client := newStorageTestClient(t, storageStub{
@@ -135,7 +141,7 @@ func TestUpdateCloudProjectObjectStorage_MultipleBucketsAreIndependentSeries(t *
 }
 
 func TestUpdateCloudProjectObjectStorage_RegionLabelFollowsQueriedRegion(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	client := newStorageTestClient(t, storageStub{
@@ -162,7 +168,7 @@ func TestUpdateCloudProjectObjectStorage_RegionLabelFollowsQueriedRegion(t *test
 }
 
 func TestUpdateCloudProjectObjectStorage_LargeSizesKeepFullPrecision(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	client := newStorageTestClient(t, storageStub{
@@ -186,7 +192,7 @@ func TestUpdateCloudProjectObjectStorage_LargeSizesKeepFullPrecision(t *testing.
 }
 
 func TestUpdateCloudProjectObjectStorage_FailingRegionDoesNotSuppressOthers(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	client := newStorageTestClient(t, storageStub{
@@ -213,7 +219,7 @@ func TestUpdateCloudProjectObjectStorage_FailingRegionDoesNotSuppressOthers(t *t
 }
 
 func TestUpdateCloudProjectObjectStorage_FailingProjectDoesNotSuppressOthers(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a,project-b")
 
 	client := newStorageTestClient(t, storageStub{
@@ -243,7 +249,7 @@ func TestUpdateCloudProjectObjectStorage_FailingProjectDoesNotSuppressOthers(t *
 }
 
 func TestUpdateCloudProjectObjectStorage_DeletedBucketSeriesAreDropped(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	stub := storageStub{
@@ -275,7 +281,7 @@ func TestUpdateCloudProjectObjectStorage_DeletedBucketSeriesAreDropped(t *testin
 }
 
 func TestUpdateCloudProjectObjectStorage_FailedRefreshKeepsPreviousValues(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
 
 	stub := storageStub{
@@ -304,7 +310,7 @@ func TestUpdateCloudProjectObjectStorage_FailedRefreshKeepsPreviousValues(t *tes
 }
 
 func TestUpdateCloudProjectObjectStorage_NoProjectsConfigured(t *testing.T) {
-	resetObjectStorageGauges(t)
+	resetObjectStorageState(t)
 	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "")
 
 	client := newStorageTestClient(t, storageStub{})

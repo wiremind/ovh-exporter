@@ -54,7 +54,7 @@ func updateCloudProjectObjectStoragePerRegion(ovhClient *ovh.Client, projectID s
 }
 
 func updateCloudProjectObjectStoragePerProjectID(ovhClient *ovh.Client, projectID string) {
-	regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
+	regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
 	if err != nil {
 		apiErrors.WithLabelValues(CollectorCloudProjectObjectStorage).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)
