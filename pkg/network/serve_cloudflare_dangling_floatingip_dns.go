@@ -2,7 +2,9 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -75,6 +77,14 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 	}
 
 	reserved := make(map[string]bool)
+
+	// skipped collects the regions walked past on a 404 so they can be
+	// reported as one line. Logging them individually costs one line per
+	// macro-region per project on every cycle, which buries the rest of the
+	// output; zerolog has no level configured here, so demoting them to
+	// Debug would not have hidden them either.
+	var skipped []string
+
 	for _, projectID := range projectIDs {
 		regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
 		if err != nil {
@@ -84,6 +94,17 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 		for _, regionName := range regions {
 			floatingIPs, err := cachedGetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
 			if err != nil {
+				// The region list holds OVH's macro-regions (GRA, RBX, SBG,
+				// BHS, DE, UK, WAW...) next to the real ones. They expose no
+				// floating IP endpoint, so they answer 404 for every project,
+				// permanently. Aborting on those would mean the cross-check
+				// never completes, so they are skipped and the walk goes on.
+				if isOVHNotFound(err) {
+					skipped = append(skipped, projectID+"/"+regionName)
+
+					continue
+				}
+
 				return nil, fmt.Errorf("failed to retrieve floating IPs for project %s in region %s: %w", projectID, regionName, err)
 			}
 
@@ -96,7 +117,21 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 		}
 	}
 
+	if len(skipped) > 0 {
+		logger.Info().Msgf("%d project/region pairs expose no floating IP endpoint and were skipped, %d reserved floating IPs collected", len(skipped), len(reserved))
+	}
+
 	return reserved, nil
+}
+
+// isOVHNotFound reports whether err is an OVH API 404. Only a 404 is
+// tolerated by reservedFloatingIPs: anything else (a timeout, a 403 on a
+// revoked credential, a 500) may hide floating IPs we do own, and a short
+// set of reserved IPs turns this check into a page of false positives.
+func isOVHNotFound(err error) bool {
+	var apiError *ovh.APIError
+
+	return errors.As(err, &apiError) && apiError.Code == http.StatusNotFound
 }
 
 func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[string]bool, ovhRanges ovhranges.Ranges) []danglingRecord {
@@ -121,7 +156,13 @@ func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[
 	return records
 }
 
+// setCloudflareDanglingFloatingIPDNSInfo is called once per finding, so the
+// log line here gives the same list as the metric. It is worth the volume:
+// the findings are the reason the check exists, and reading them from the
+// logs needs no Prometheus.
 func setCloudflareDanglingFloatingIPDNSInfo(record danglingRecord) {
+	logger.Info().Msgf("dangling DNS record: %s %s -> %s (zone %s) points at an OVH address no watched project reserves as a floating IP", record.RecordType, record.RecordName, record.IP, record.Zone)
+
 	cloudflareDanglingFloatingIPDNSInfo.With(prometheus.Labels{
 		"zone":        record.Zone,
 		"record_name": record.RecordName,
@@ -178,14 +219,29 @@ func updateCloudflareDanglingFloatingIPDNS(ovhClient *ovh.Client) {
 	ctx, cancel := context.WithTimeout(context.Background(), danglingDNSCheckTimeout)
 	defer cancel()
 
+	// found is filled by the fetch closure below. RefreshScope only
+	// reports failure, and the two steps after the OVH walk (RIPEstat, then
+	// the Cloudflare zone pagination) log nothing at all, so without this
+	// count a successful check is indistinguishable from a stalled one.
+	found := 0
+
 	err := RefreshScope(
 		GlobalScope{},
 		CollectorCloudflareDanglingDNS,
-		func() ([]danglingRecord, error) { return fetchDanglingRecords(ctx, cfClient, ovhClient) },
+		func() ([]danglingRecord, error) {
+			records, err := fetchDanglingRecords(ctx, cfClient, ovhClient)
+			found = len(records)
+
+			return records, err
+		},
 		setCloudflareDanglingFloatingIPDNSInfo,
 		cloudflareDanglingFloatingIPDNSInfo,
 	)
 	if err != nil {
 		logger.Error().Msgf("failed to cross-check Cloudflare DNS records against OVH floating IPs: %v", err)
+
+		return
 	}
+
+	logger.Info().Msgf("cross-check done, %d dangling DNS record(s) flagged", found)
 }

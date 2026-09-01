@@ -1,8 +1,11 @@
 package network
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/ovh/go-ovh/ovh"
 	cloudflaremodels "github.com/wiremind/ovh-exporter/pkg/cloudflaresdk/models"
 	"github.com/wiremind/ovh-exporter/pkg/ovhranges"
 )
@@ -92,6 +95,47 @@ func TestMatchDanglingRecords(t *testing.T) {
 				if got[i] != tc.want[i] {
 					t.Fatalf("got[%d] = %v, want %v", i, got[i], tc.want[i])
 				}
+			}
+		})
+	}
+}
+
+// TestIsOVHNotFound guards which failures reservedFloatingIPs is allowed to
+// walk past. Only a 404 may be skipped - OVH answers one for every
+// macro-region, so aborting on it would stop the cross-check from ever
+// completing. Every other status must abort, because a floating IP missing
+// from the reserved set is what turns a healthy DNS record into a finding.
+func TestIsOVHNotFound(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want bool
+	}{
+		"region not found is skippable": {
+			err:  &ovh.APIError{Code: 404, Class: "Client::NotFound", Message: "not found: region GRA not found"},
+			want: true,
+		},
+		"404 wrapped by a caller is still recognised": {
+			err:  fmt.Errorf("failed to retrieve floating IPs: %w", &ovh.APIError{Code: 404}),
+			want: true,
+		},
+		"revoked credential must abort": {
+			err:  &ovh.APIError{Code: 403, Class: "Client::Forbidden"},
+			want: false,
+		},
+		"server error must abort": {
+			err:  &ovh.APIError{Code: 500},
+			want: false,
+		},
+		"transport error must abort": {
+			err:  errors.New("context deadline exceeded"),
+			want: false,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := isOVHNotFound(tc.err); got != tc.want {
+				t.Errorf("isOVHNotFound(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
 	}
