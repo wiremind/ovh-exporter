@@ -2,7 +2,9 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -75,6 +77,14 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 	}
 
 	reserved := make(map[string]bool)
+
+	// skipped collects the regions walked past on a 404 so they can be
+	// reported as one line. Logging them individually costs one line per
+	// macro-region per project on every cycle, which buries the rest of the
+	// output; zerolog has no level configured here, so demoting them to
+	// Debug would not have hidden them either.
+	var skipped []string
+
 	for _, projectID := range projectIDs {
 		regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
 		if err != nil {
@@ -84,6 +94,17 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 		for _, regionName := range regions {
 			floatingIPs, err := cachedGetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
 			if err != nil {
+				// The region list holds OVH's macro-regions (GRA, RBX, SBG,
+				// BHS, DE, UK, WAW...) next to the real ones. They expose no
+				// floating IP endpoint, so they answer 404 for every project,
+				// permanently. Aborting on those would mean the cross-check
+				// never completes, so they are skipped and the walk goes on.
+				if isOVHNotFound(err) {
+					skipped = append(skipped, projectID+"/"+regionName)
+
+					continue
+				}
+
 				return nil, fmt.Errorf("failed to retrieve floating IPs for project %s in region %s: %w", projectID, regionName, err)
 			}
 
@@ -96,7 +117,21 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 		}
 	}
 
+	if len(skipped) > 0 {
+		logger.Info().Msgf("%d project/region pairs expose no floating IP endpoint and were skipped, %d reserved floating IPs collected", len(skipped), len(reserved))
+	}
+
 	return reserved, nil
+}
+
+// isOVHNotFound reports whether err is an OVH API 404. Only a 404 is
+// tolerated by reservedFloatingIPs: anything else (a timeout, a 403 on a
+// revoked credential, a 500) may hide floating IPs we do own, and a short
+// set of reserved IPs turns this check into a page of false positives.
+func isOVHNotFound(err error) bool {
+	var apiError *ovh.APIError
+
+	return errors.As(err, &apiError) && apiError.Code == http.StatusNotFound
 }
 
 func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[string]bool, ovhRanges ovhranges.Ranges) []danglingRecord {
