@@ -1,6 +1,8 @@
 package network
 
 import (
+	"strings"
+
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wiremind/ovh-exporter/pkg/ovhsdk/api"
@@ -34,14 +36,23 @@ func setCloudProjectObjectStorageInfo(projectID string, regionName string, stora
 	cloudProjectObjectStorageBytes.With(labels).Set(float64(storageContainer.ObjectsSize))
 }
 
-func updateCloudProjectObjectStoragePerRegion(ovhClient *ovh.Client, projectID string, regionName string) {
+func updateCloudProjectObjectStoragePerRegion(ovhClient *ovh.Client, projectID string, regionName string) bool {
 	logger.Info().Msgf("updating cloud project object storage for project %s in region %s", projectID, regionName)
+
+	skipped := false
 
 	err := RefreshScope(
 		ProjectRegionScope{ProjectID: projectID, Region: regionName},
 		CollectorCloudProjectObjectStorage,
 		func() ([]models.StorageContainer, error) {
-			return api.GetCloudProjectRegionStorageContainers(ovhClient, projectID, regionName)
+			storageContainers, err := api.GetCloudProjectRegionStorageContainers(ovhClient, projectID, regionName)
+			if isOVHNotFound(err) {
+				skipped = true
+
+				return nil, nil
+			}
+
+			return storageContainers, err
 		},
 		func(storageContainer models.StorageContainer) {
 			setCloudProjectObjectStorageInfo(projectID, regionName, storageContainer)
@@ -51,6 +62,8 @@ func updateCloudProjectObjectStoragePerRegion(ovhClient *ovh.Client, projectID s
 	if err != nil {
 		logger.Error().Msgf("failed to retrieve object storage for project %s in region %s: %v", projectID, regionName, err)
 	}
+
+	return skipped
 }
 
 func updateCloudProjectObjectStoragePerProjectID(ovhClient *ovh.Client, projectID string) {
@@ -61,8 +74,16 @@ func updateCloudProjectObjectStoragePerProjectID(ovhClient *ovh.Client, projectI
 		return
 	}
 
+	var skipped []string
+
 	for _, regionName := range regions {
-		updateCloudProjectObjectStoragePerRegion(ovhClient, projectID, regionName)
+		if updateCloudProjectObjectStoragePerRegion(ovhClient, projectID, regionName) {
+			skipped = append(skipped, regionName)
+		}
+	}
+
+	if len(skipped) > 0 {
+		logger.Info().Msgf("project %s hosts no object storage in %d of its %d regions, skipped: %s", projectID, len(skipped), len(regions), strings.Join(skipped, ", "))
 	}
 }
 

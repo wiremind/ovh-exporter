@@ -13,8 +13,9 @@ import (
 )
 
 type storageStub struct {
-	regions map[string]string
-	storage map[string]string
+	regions         map[string]string
+	storage         map[string]string
+	storageNotFound map[string]bool
 }
 
 func newStorageTestClient(t *testing.T, stub storageStub) *ovh.Client {
@@ -28,7 +29,15 @@ func newStorageTestClient(t *testing.T, stub storageStub) *ovh.Client {
 		writeStubBody(w, stub.regions[r.PathValue("projectID")])
 	})
 	mux.HandleFunc("GET /cloud/project/{projectID}/region/{regionName}/storage", func(w http.ResponseWriter, r *http.Request) {
-		writeStubBody(w, stub.storage[r.PathValue("projectID")+"/"+r.PathValue("regionName")])
+		key := r.PathValue("projectID") + "/" + r.PathValue("regionName")
+		if stub.storageNotFound[key] {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprintf(w, `{"message":"not found: region %s not found"}`, r.PathValue("regionName"))
+
+			return
+		}
+		writeStubBody(w, stub.storage[key])
 	})
 
 	server := httptest.NewServer(mux)
@@ -216,6 +225,60 @@ func TestUpdateCloudProjectObjectStorage_FailingRegionDoesNotSuppressOthers(t *t
 		ovh_exporter_cloud_project_object_storage_bytes{bucket="backups",project_id="project-a",region="EU-WEST-PAR"} 1337
 		ovh_exporter_cloud_project_object_storage_bytes{bucket="logs",project_id="project-a",region="DE"} 99
 	`)
+}
+
+func TestUpdateCloudProjectObjectStorage_RegionWithoutStorageEndpointIsNotAnError(t *testing.T) {
+	resetObjectStorageState(t)
+	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
+
+	client := newStorageTestClient(t, storageStub{
+		regions: map[string]string{"project-a": `["RBX","RBX-A","RBX-ARCHIVE"]`},
+		storage: map[string]string{
+			"project-a/RBX": `[{"name":"backups","region":"RBX","objectsCount":42,"objectsSize":1337}]`,
+		},
+		storageNotFound: map[string]bool{
+			"project-a/RBX-A":       true,
+			"project-a/RBX-ARCHIVE": true,
+		},
+	})
+
+	before := testutil.ToFloat64(apiErrors.WithLabelValues(CollectorCloudProjectObjectStorage))
+
+	updateCloudProjectObjectStorage(client)
+
+	if after := testutil.ToFloat64(apiErrors.WithLabelValues(CollectorCloudProjectObjectStorage)); after != before {
+		t.Fatalf("expected regions without a storage endpoint not to increment apiErrors, went from %v to %v", before, after)
+	}
+
+	assertObjectStorageGauges(t, `
+		# HELP ovh_exporter_cloud_project_object_storage_objects Number of objects stored in an OVHcloud Object Storage bucket.
+		# TYPE ovh_exporter_cloud_project_object_storage_objects gauge
+		ovh_exporter_cloud_project_object_storage_objects{bucket="backups",project_id="project-a",region="RBX"} 42
+	`, `
+		# HELP ovh_exporter_cloud_project_object_storage_bytes Number of bytes stored in an OVHcloud Object Storage bucket.
+		# TYPE ovh_exporter_cloud_project_object_storage_bytes gauge
+		ovh_exporter_cloud_project_object_storage_bytes{bucket="backups",project_id="project-a",region="RBX"} 1337
+	`)
+}
+
+func TestUpdateCloudProjectObjectStorage_UnexpectedRegionFailureStillCountsAsError(t *testing.T) {
+	resetObjectStorageState(t)
+	t.Setenv(EnvOVHCloudProjectInventoryProjectIDs, "project-a")
+
+	client := newStorageTestClient(t, storageStub{
+		regions: map[string]string{"project-a": `["RBX","GRA"]`},
+		storage: map[string]string{
+			"project-a/RBX": `[{"name":"backups","region":"RBX","objectsCount":42,"objectsSize":1337}]`,
+		},
+	})
+
+	before := testutil.ToFloat64(apiErrors.WithLabelValues(CollectorCloudProjectObjectStorage))
+
+	updateCloudProjectObjectStorage(client)
+
+	if after := testutil.ToFloat64(apiErrors.WithLabelValues(CollectorCloudProjectObjectStorage)); after != before+1 {
+		t.Fatalf("expected the failing region to increment apiErrors once, went from %v to %v", before, after)
+	}
 }
 
 func TestUpdateCloudProjectObjectStorage_FailingProjectDoesNotSuppressOthers(t *testing.T) {

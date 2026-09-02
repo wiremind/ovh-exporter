@@ -122,6 +122,11 @@ permission `publicCloudProject:apiovh:region/storage/get` (covered by the
 `GET /cloud/project/*/region/*/storage` right emitted by `ovh-exporter credentials`). No S3
 credentials are needed and no object is ever enumerated.
 
+A project's region list also holds regions that host no object storage at all — the sub-regions
+(`SBG5`, `UK1`, `WAW1`) and the 3-AZ and archive variants (`RBX-A`, `RBX-ARCHIVE`) sitting next to
+the region that does carry the buckets. Those answer `404`, which is not counted as an API error;
+they are reported once per project and cycle as a single skipped-regions log line.
+
 > **Note:** OVHcloud documents `objectsSize` as the container's total object size, but it is not
 > specified whether non-current versions are included when S3 versioning is enabled. The exporter
 > reports whatever the control-plane returns; on versioned buckets this figure may therefore differ
