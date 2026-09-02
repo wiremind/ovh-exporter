@@ -2,9 +2,7 @@ package network
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -122,16 +120,6 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 	}
 
 	return reserved, nil
-}
-
-// isOVHNotFound reports whether err is an OVH API 404. Only a 404 is
-// tolerated by reservedFloatingIPs: anything else (a timeout, a 403 on a
-// revoked credential, a 500) may hide floating IPs we do own, and a short
-// set of reserved IPs turns this check into a page of false positives.
-func isOVHNotFound(err error) bool {
-	var apiError *ovh.APIError
-
-	return errors.As(err, &apiError) && apiError.Code == http.StatusNotFound
 }
 
 func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[string]bool, ovhRanges ovhranges.Ranges) []danglingRecord {
