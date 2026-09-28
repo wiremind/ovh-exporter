@@ -3,7 +3,7 @@ module github.com/wiremind/ovh-exporter
 go 1.26.0
 
 require (
-	github.com/cloudflare/cloudflare-go/v7 v7.8.0
+	github.com/cloudflare/cloudflare-go/v7 v7.11.0
 	github.com/ovh/go-ovh v1.9.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.23.2
