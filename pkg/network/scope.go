@@ -12,6 +12,7 @@ const (
 	CollectorCloudProjectVolume             = "cloud_project_volume"
 	CollectorCloudProjectLoadBalancer       = "cloud_project_loadbalancer"
 	CollectorCloudProjectFloatingIP         = "cloud_project_floatingip"
+	CollectorCloudProjectObjectStorage      = "cloud_project_object_storage"
 	CollectorDedicatedServerSubscription    = "dedicated_server_subscription"
 	CollectorServicesSavingsPlansSubscribed = "services_savingsplans_subscribed"
 	CollectorCloudflareDanglingDNS          = "cloudflare_dangling_dns"
