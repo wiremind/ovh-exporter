@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v2.4.2 - 2026-10-14
+#### Features
+- (**cloudflare**) log every dangling DNS record found - (806328b) - Etienne Vaneecloo
+#### Bug Fixes
+- (**cloudflare**) skip regions with no floating IP endpoint in the dangling DNS check - (2b6bc14) - Etienne Vaneecloo
+- (**network**) only query regions exposing the network or load balancer service - (db40fa0) - Etienne Vaneecloo
+#### Continuous Integration
+- pin GitHub Actions to commit SHAs - (16dae36) - Cédric de Saint Martin
+
+- - -
+
 ## v2.4.0 - 2026-08-31
 #### Features
 - (**cloudflare**) flag DNS records whose IP OVH does not currently reserve - (23e1ff2) - Etienne Vaneecloo
