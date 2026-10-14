@@ -47,7 +47,7 @@ func updateCloudProjectLoadBalancersPerRegion(ovhClient *ovh.Client, projectID s
 }
 
 func updateCloudProjectLoadBalancersPerProjectID(ovhClient *ovh.Client, projectID string) {
-	regions, err := api.GetCloudProjectRegions(ovhClient, projectID)
+	regions, err := cachedGetCloudProjectRegionsWithService(ovhClient, projectID, RegionServiceLoadBalancer)
 	if err != nil {
 		apiErrors.WithLabelValues(CollectorCloudProjectLoadBalancer).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)

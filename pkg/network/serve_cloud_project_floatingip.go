@@ -55,7 +55,7 @@ func updateCloudProjectFloatingIPsPerRegion(ovhClient *ovh.Client, projectID str
 }
 
 func updateCloudProjectFloatingIPsPerProjectID(ovhClient *ovh.Client, projectID string) {
-	regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
+	regions, err := cachedGetCloudProjectRegionsWithService(ovhClient, projectID, RegionServiceNetwork)
 	if err != nil {
 		apiErrors.WithLabelValues(CollectorCloudProjectFloatingIP).Inc()
 		logger.Error().Msgf("failed to retrieve regions for project %s: %v", projectID, err)

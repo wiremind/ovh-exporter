@@ -86,7 +86,7 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 	var skipped []string
 
 	for _, projectID := range projectIDs {
-		regions, err := cachedGetCloudProjectRegions(ovhClient, projectID)
+		regions, err := cachedGetCloudProjectRegionsWithService(ovhClient, projectID, RegionServiceNetwork)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve regions for project %s: %w", projectID, err)
 		}
@@ -94,11 +94,11 @@ func reservedFloatingIPs(ovhClient *ovh.Client) (map[string]bool, error) {
 		for _, regionName := range regions {
 			floatingIPs, err := cachedGetCloudProjectRegionFloatingIPs(ovhClient, projectID, regionName)
 			if err != nil {
-				// The region list holds OVH's macro-regions (GRA, RBX, SBG,
-				// BHS, DE, UK, WAW...) next to the real ones. They expose no
-				// floating IP endpoint, so they answer 404 for every project,
-				// permanently. Aborting on those would mean the cross-check
-				// never completes, so they are skipped and the walk goes on.
+				// Storage-only macro-regions are already filtered out by
+				// RegionServiceNetwork. A 404 here means a region announces
+				// the network service but has no floating IP endpoint:
+				// skipped rather than aborting, so one odd region cannot
+				// block the whole cross-check.
 				if isOVHNotFound(err) {
 					skipped = append(skipped, projectID+"/"+regionName)
 
