@@ -39,6 +39,7 @@ var apiKeyRights = []APIKeyRight{
 	{Method: "GET", Endpoint: "/cloud/project/*/region/*"},
 	{Method: "GET", Endpoint: "/cloud/project/*/region/*/floatingip"},
 	{Method: "GET", Endpoint: "/cloud/project/*/region/*/loadbalancing/loadbalancer"},
+	{Method: "GET", Endpoint: "/cloud/project/*/region/*/storage"},
 	{Method: "GET", Endpoint: "/cloud/project/*/volume"},
 	{Method: "GET", Endpoint: "/dedicated/server"},
 	{Method: "GET", Endpoint: "/dedicated/server/*"},
