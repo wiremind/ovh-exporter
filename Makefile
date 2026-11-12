@@ -49,6 +49,6 @@ dependencies:
 	go install golang.org/x/tools/cmd/goimports@v0.48.0
 	go install mvdan.cc/gofumpt@v0.10.0
 	go install github.com/daixiang0/gci@v0.14.0
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 	go mod tidy
 	go mod vendor

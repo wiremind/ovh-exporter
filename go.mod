@@ -2,6 +2,8 @@ module github.com/wiremind/ovh-exporter
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/cloudflare/cloudflare-go/v7 v7.15.0
 	github.com/ovh/go-ovh v1.9.0
