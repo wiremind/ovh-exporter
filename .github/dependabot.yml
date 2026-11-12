@@ -14,3 +14,10 @@ updates:
     labels:
       - "dependencies"
       - "bot"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "bot"
