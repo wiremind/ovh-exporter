@@ -59,6 +59,7 @@ func initializeMetrics() {
 	prometheus.MustRegister(dedicatedServerSubscriptionExpirationTimestamp)
 	prometheus.MustRegister(servicesSavingsPlansSubscribedPlanSize)
 	prometheus.MustRegister(cloudflareDanglingFloatingIPDNSInfo)
+	prometheus.MustRegister(cloudflareDanglingFloatingIPDNSResponding)
 }
 
 func updateMetrics(ovhClient *ovh.Client) {

@@ -64,6 +64,15 @@ still sends there. This is exposed as
 record to act on: fix or delete the DNS record, or re-reserve the floating
 IP if it's still needed.
 
+Each flagged IP is also probed with a TCP connect on ports 22, 80, 443 and
+6443 (2 s timeout), exposed as
+`ovh_exporter_cloudflare_dangling_floatingip_dns_responding` with the same
+labels and a value of 1 or 0. A refused connection counts as responding
+too: only a live host sends the refusal, while an unallocated IP stays
+silent and times out. A 1 means the IP was likely reallocated to someone
+else and the record is an active subdomain-takeover risk, so it is urgent.
+The exporter needs outbound TCP to those ports for the probe to work.
+
 Condition 1 is what keeps the metric a finding list rather than a dump of
 the whole DNS estate: without it, every record legitimately pointing
 somewhere other than OVH (another cloud, on-prem, a SaaS target) would be

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"slices"
 	"sync"
+	"syscall"
 	"time"
 
 	cloudflare "github.com/cloudflare/cloudflare-go/v7"
@@ -16,6 +19,7 @@ import (
 	cloudflareapi "github.com/wiremind/ovh-exporter/pkg/cloudflaresdk/api"
 	cloudflaremodels "github.com/wiremind/ovh-exporter/pkg/cloudflaresdk/models"
 	"github.com/wiremind/ovh-exporter/pkg/ovhranges"
+	"github.com/wiremind/ovh-exporter/pkg/parallel"
 )
 
 var cloudflareDanglingFloatingIPDNSInfo = prometheus.NewGaugeVec(
@@ -26,7 +30,22 @@ var cloudflareDanglingFloatingIPDNSInfo = prometheus.NewGaugeVec(
 	[]string{"zone", "record_name", "record_type", "ip"},
 )
 
+var cloudflareDanglingFloatingIPDNSResponding = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "ovh_exporter_cloudflare_dangling_floatingip_dns_responding",
+		Help: "1 when the IP of a flagged DNS record accepts or refuses a TCP connection on one of the probed ports, so a host now holds it; 0 when every port times out.",
+	},
+	[]string{"zone", "record_name", "record_type", "ip"},
+)
+
+// probePorts covers SSH, HTTP, HTTPS and the Kubernetes API, the services our
+// records usually front.
+var probePorts = []string{"22", "80", "443", "6443"}
+
 const (
+	probeTimeout     = 2 * time.Second
+	probeConcurrency = 20
+
 	// cloudflareRequestTimeout bounds a single Cloudflare HTTP call. The
 	// list endpoints are paginated, so a per-call timeout is the only one
 	// the SDK can enforce.
@@ -57,6 +76,7 @@ type danglingRecord struct {
 	RecordName string
 	RecordType string
 	IP         string
+	Responding bool
 }
 
 // reservedFloatingIPs returns every floating IP the watched projects hold,
@@ -134,6 +154,23 @@ func isOVHNotFound(err error) bool {
 	return errors.As(err, &apiError) && apiError.Code == http.StatusNotFound
 }
 
+// responds reports whether a host holds ip. A refused connection counts: only
+// a live host sends the reset, an unallocated address stays silent.
+func responds(ip string, ports []string, timeout time.Duration) bool {
+	answers := parallel.Map(ports, len(ports), func(port string) bool {
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), timeout)
+		if err == nil {
+			_ = conn.Close()
+
+			return true
+		}
+
+		return errors.Is(err, syscall.ECONNREFUSED)
+	})
+
+	return slices.Contains(answers, true)
+}
+
 func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[string]bool, ovhRanges ovhranges.Ranges) []danglingRecord {
 	var records []danglingRecord
 
@@ -161,14 +198,23 @@ func matchDanglingRecords(dnsRecords []cloudflaremodels.DNSRecord, reserved map[
 // the findings are the reason the check exists, and reading them from the
 // logs needs no Prometheus.
 func setCloudflareDanglingFloatingIPDNSInfo(record danglingRecord) {
-	logger.Info().Msgf("dangling DNS record: %s %s -> %s (zone %s) points at an OVH address no watched project reserves as a floating IP", record.RecordType, record.RecordName, record.IP, record.Zone)
+	logger.Info().Msgf("dangling DNS record: %s %s -> %s (zone %s) points at an OVH address no watched project reserves as a floating IP, responding=%t", record.RecordType, record.RecordName, record.IP, record.Zone, record.Responding)
 
-	cloudflareDanglingFloatingIPDNSInfo.With(prometheus.Labels{
+	labels := prometheus.Labels{
 		"zone":        record.Zone,
 		"record_name": record.RecordName,
 		"record_type": record.RecordType,
 		"ip":          record.IP,
-	}).Set(1)
+	}
+
+	cloudflareDanglingFloatingIPDNSInfo.With(labels).Set(1)
+
+	responding := 0.0
+	if record.Responding {
+		responding = 1
+	}
+
+	cloudflareDanglingFloatingIPDNSResponding.With(labels).Set(responding)
 }
 
 func fetchDanglingRecords(ctx context.Context, cfClient *cloudflare.Client, ovhClient *ovh.Client) ([]danglingRecord, error) {
@@ -195,6 +241,13 @@ func fetchDanglingRecords(ctx context.Context, cfClient *cloudflare.Client, ovhC
 		}
 
 		records = append(records, matchDanglingRecords(dnsRecords, reserved, ovhRanges)...)
+	}
+
+	responding := parallel.Map(records, probeConcurrency, func(record danglingRecord) bool {
+		return responds(record.IP, probePorts, probeTimeout)
+	})
+	for i := range records {
+		records[i].Responding = responding[i]
 	}
 
 	return records, nil
@@ -236,6 +289,7 @@ func updateCloudflareDanglingFloatingIPDNS(ovhClient *ovh.Client) {
 		},
 		setCloudflareDanglingFloatingIPDNSInfo,
 		cloudflareDanglingFloatingIPDNSInfo,
+		cloudflareDanglingFloatingIPDNSResponding,
 	)
 	if err != nil {
 		logger.Error().Msgf("failed to cross-check Cloudflare DNS records against OVH floating IPs: %v", err)
