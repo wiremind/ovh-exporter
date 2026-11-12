@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v2.5.0 - 2026-11-12
+#### Features
+- (**cloudflare**) probe dangling DNS record IPs for a live host - (ea57ffd) - Etienne Vaneecloo
+#### Bug Fixes
+- (**container**) move to pinned distroless and patched Go to clear HIGH CVEs - (e2f49b1) - Etienne Vaneecloo
+#### Continuous Integration
+- publish an immutable <ref>-<sha> image for every main push and PR - (b6b7180) - Etienne Vaneecloo
+
+- - -
+
 ## v2.4.2 - 2026-10-14
 #### Features
 - (**cloudflare**) log every dangling DNS record found - (806328b) - Etienne Vaneecloo
