@@ -117,7 +117,7 @@ func TestIsOVHNotFound(t *testing.T) {
 			want: true,
 		},
 		"404 wrapped by a caller is still recognised": {
-			err:  fmt.Errorf("failed to retrieve floating IPs: %w", &ovh.APIError{Code: 404}),
+			err:  fmt.Errorf("failed to retrieve floating IPs: %w", error(&ovh.APIError{Code: 404})),
 			want: true,
 		},
 		"revoked credential must abort": {
