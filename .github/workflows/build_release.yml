@@ -63,6 +63,9 @@ jobs:
   container:
     name: Containerfile
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -92,15 +95,25 @@ jobs:
       - name: Extract metadata
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: metadata
+        env:
+          # Tag pull requests with the PR head commit, not the merge commit.
+          DOCKER_METADATA_PR_HEAD_SHA: true
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=main-,format=long,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=pr-${{ github.event.pull_request.number }}-,format=long,enable=${{ github.event_name == 'pull_request' }}
 
       - name: Build image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Containerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          # Fork PRs get a read-only token and cannot push.
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           platforms: ${{ matrix.platform }}/${{ matrix.arch }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
