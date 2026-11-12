@@ -3,7 +3,9 @@ package network
 import (
 	"errors"
 	"fmt"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/ovh/go-ovh/ovh"
 	cloudflaremodels "github.com/wiremind/ovh-exporter/pkg/cloudflaresdk/models"
@@ -136,6 +138,41 @@ func TestIsOVHNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if got := isOVHNotFound(tc.err); got != tc.want {
 				t.Errorf("isOVHNotFound(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResponds(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+	_, openPort, _ := net.SplitHostPort(listener.Addr().String())
+
+	closed, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	_, closedPort, _ := net.SplitHostPort(closed.Addr().String())
+	_ = closed.Close()
+
+	cases := map[string]struct {
+		ip    string
+		ports []string
+		want  bool
+	}{
+		"open port answers":              {ip: "127.0.0.1", ports: []string{openPort}, want: true},
+		"refused port proves a host":     {ip: "127.0.0.1", ports: []string{closedPort}, want: true},
+		"one answering port is enough":   {ip: "127.0.0.1", ports: []string{closedPort, openPort}, want: true},
+		"unrouted documentation address": {ip: "192.0.2.1", ports: []string{"22", "443"}, want: false},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := responds(tc.ip, tc.ports, 300*time.Millisecond); got != tc.want {
+				t.Fatalf("responds(%s, %v) = %v, want %v", tc.ip, tc.ports, got, tc.want)
 			}
 		})
 	}
