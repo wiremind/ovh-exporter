@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v2.5.1 - 2026-11-12
+#### Continuous Integration
+- run golangci-lint v2.15.0 and pin the Go 1.27.4 toolchain - (5966474) - Etienne Vaneecloo
+#### Miscellaneous Chores
+- (**deps**) move to Go 1.27.4 and update every dependency - (dd45701) - Etienne Vaneecloo
+
+- - -
+
 ## v2.5.0 - 2026-11-12
 #### Features
 - (**cloudflare**) probe dangling DNS record IPs for a live host - (ea57ffd) - Etienne Vaneecloo
