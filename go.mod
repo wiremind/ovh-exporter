@@ -6,7 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/cloudflare/cloudflare-go/v7 v7.15.0
-	github.com/ovh/go-ovh v1.9.0
+	github.com/ovh/go-ovh v1.10.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.25.0
 	github.com/rs/zerolog v1.35.1
